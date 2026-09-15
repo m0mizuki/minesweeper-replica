@@ -5,7 +5,13 @@ __pycache__/
 .venv/
 build/
 dist/
+outputs/
 
 # Experiment outputs can become large and should be curated before committing.
 results/
 
+# Local Codex/agent metadata and generated working directories.
+/.codex/
+/.codex-*/
+/.agents/
+/.chart-data-*/
