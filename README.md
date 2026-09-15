@@ -4,7 +4,7 @@ Minesweeper を planted CSP として扱い、Belief Propagation と MCMC の比
 solution-space の統計構造を調べる研究用コードです。研究方針と数理モデルは
 [`docs/README_minesweeper_research.md`](docs/README_minesweeper_research.md) を参照してください。
 
-現在は Milestone 2 まで実装しています。
+現在は Milestone 3 まで実装しています。
 
 - 各セルを独立な Bernoulli(`rho`) で生成（総地雷数は固定しない）
 - ground truth と独立に観測プロトコルを適用
@@ -14,6 +14,10 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 - 小規模CSPのfeasible statesを完全列挙
 - Bernoulli事前分布を含む厳密な分配関数・周辺確率を計算
 - planted overlapと独立2レプリカ間の厳密な overlap 分布を計算
+- 正規化・log-domain更新・dampingを備えたBelief Propagation
+- BPの収束状態、iteration数、message residualを記録
+- 複数初期値によるfixed-point依存性の比較
+- BP marginalとexact marginalの誤差評価
 
 観測プロトコルは次の2種類です。
 
@@ -24,11 +28,13 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 
 ```python
 from minesweeper_csp import (
+    BPConfig,
     assert_csp_consistent,
     build_factor_graph,
     generate_clues,
     generate_ground_truth,
     generate_observation_mask,
+    run_bp,
     solve_exact,
 )
 
@@ -52,12 +58,24 @@ exact = solve_exact(
 print(exact.number_of_feasible_solutions)
 print(exact.marginals)
 print(exact.replica_overlap.mean)
+
+bp = run_bp(
+    graph,
+    rho=instance.rho,
+    config=BPConfig(damping=0.2, initialization="random", seed=789),
+)
+print(bp.status, bp.iterations, bp.marginals)
 ```
 
 `solve_exact` は計算量・メモリ量とも変数数に対して指数的です。誤って大規模系を
 全列挙しないよう、デフォルトでは未知変数が20個を超えると停止します。
 replica overlap 分布は全solution pairの二重ループではなく、XOR自己相関の
 Walsh–Hadamard変換で厳密に求めます。
+
+BPのmessageは各更新で正規化されます。積によるunderflowを避けるため更新は
+log-domainで行い、hard constraintやpriorによって両状態の質量がゼロになる場合は
+一様分布で隠さず`infeasible`として返します。`run_bp_multiple`に複数の
+`BPConfig`を渡すことで、初期値ごとの収束とfixed pointの差を比較できます。
 
 テストは、パッケージを editable install した後に標準ライブラリだけで実行できます。
 

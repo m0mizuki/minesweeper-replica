@@ -1,5 +1,16 @@
 """Core types and functions for planted Minesweeper CSP instances."""
 
+from .bp import (
+    BPConfig,
+    BPInitialization,
+    BPMarginalComparison,
+    BPMultipleResult,
+    BPResult,
+    BPStatus,
+    compare_bp_to_exact,
+    run_bp,
+    run_bp_multiple,
+)
 from .exact import (
     ExactEnumerationLimitError,
     ExactResult,
@@ -23,6 +34,12 @@ from .observation import (
 )
 
 __all__ = [
+    "BPConfig",
+    "BPInitialization",
+    "BPMarginalComparison",
+    "BPMultipleResult",
+    "BPResult",
+    "BPStatus",
     "FactorGraph",
     "ExactEnumerationLimitError",
     "ExactResult",
@@ -32,11 +49,14 @@ __all__ = [
     "assert_csp_consistent",
     "build_factor_graph",
     "check_csp_consistency",
+    "compare_bp_to_exact",
     "constraint_residuals",
     "enumerate_feasible_states",
     "generate_clues",
     "generate_ground_truth",
     "generate_observation_mask",
     "iter_neighbor_cells",
+    "run_bp",
+    "run_bp_multiple",
     "solve_exact",
 ]

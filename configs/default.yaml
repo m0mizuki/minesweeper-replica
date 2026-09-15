@@ -16,3 +16,11 @@ exact:
   # 全列挙の誤実行を防ぐ明示的な上限
   max_variables: 20
   chunk_size: 65536
+
+bp:
+  max_iterations: 1000
+  tolerance: 1.0e-10
+  # old messageを保持する割合
+  damping: 0.2
+  initialization: prior
+  seed: 34567
