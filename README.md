@@ -4,7 +4,7 @@ Minesweeper を planted CSP として扱い、Belief Propagation と MCMC の比
 solution-space の統計構造を調べる研究用コードです。研究方針と数理モデルは
 [`docs/README_minesweeper_research.md`](docs/README_minesweeper_research.md) を参照してください。
 
-現在は Milestone 4 まで実装しています。
+現在は Milestone 5 まで実装しています。
 
 - 各セルを独立な Bernoulli(`rho`) で生成（総地雷数は固定しない）
 - ground truth と独立に観測プロトコルを適用
@@ -22,6 +22,10 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 - burn-in、thinning、chain長、変更率、自己相関時間、ESSを記録
 - 複数chainのR-hat、chain間marginal差、replica overlap trace
 - MCMC marginalとexact marginalの誤差評価
+- `rho` sweepと複数disorder sampleの再開可能な実験実行
+- runごとの厳密なconfig・seed・git commit・timestamp記録
+- 平均、標準偏差、標準誤差、quantile、sample間揺らぎの集約
+- BP/MCMC/Exact、overlap、収束性、自己相関時間のSVG可視化
 
 観測プロトコルは次の2種類です。
 
@@ -97,6 +101,33 @@ block内の全状態から外部を固定した厳密な条件付き分布を作
 `acceptance_rate`はGibbs更新には該当しないため`None`とし、実際に状態が変わった
 更新の割合を`changed_update_rate`へ保存します。定数traceのESSだけでは固定変数と
 stuck chainを区別できないため、変更率と複数chainのR-hatを併用してください。
+
+## Phase scan
+
+実験入力には標準ライブラリで厳密に読み込めるJSONを使用します。短い動作確認用と
+小規模pilot scan用の設定を用意しています。
+
+```powershell
+python scripts/run_sweep.py configs/sweeps/rho_smoke.json --output results/rho_smoke
+python scripts/run_sweep.py configs/sweeps/rho_small.json --output results/rho_small
+```
+
+完了済みの`run.json`はデフォルトで再利用されるため、中断したsweepを同じコマンドで
+再開できます。異なるconfigを同じ出力先へ混在させることは、`--overwrite`の有無に
+かかわらず禁止されます。既存runを同一configで明示的に再計算する場合だけ
+`--overwrite`を指定してください。
+
+各runには次を保存します。
+
+- `run.json`: 条件、全seed、solver設定、収束・mixing診断、比較指標、metadata
+- `arrays.npz`: 盤面、clue、marginal、message residual、MCMC samples、全trace
+
+sweep全体には`aggregate.json`と`phase_scan.svg`を生成します。保存済みrunだけを
+再集約する場合は次を実行します。
+
+```powershell
+python scripts/aggregate.py results/rho_small
+```
 
 テストは、パッケージを editable install した後に標準ライブラリだけで実行できます。
 

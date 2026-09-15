@@ -1,0 +1,34 @@
+{
+  "model": {
+    "Lx": 3,
+    "Ly": 3
+  },
+  "observation": {
+    "protocol": "bernoulli_safe",
+    "observation_rate": 0.6
+  },
+  "sweep": {
+    "rho_values": [0.1, 0.25, 0.4],
+    "disorder_samples": 2,
+    "base_seed": 20260915
+  },
+  "exact": {
+    "max_variables": 12,
+    "chunk_size": 4096
+  },
+  "bp": {
+    "max_iterations": 300,
+    "tolerance": 1e-9,
+    "damping": 0.2,
+    "initializations": ["prior", "random"]
+  },
+  "mcmc": {
+    "sampler": "local_bfs_blocked_gibbs",
+    "block_size": 6,
+    "burn_in": 100,
+    "samples": 300,
+    "thinning": 1,
+    "chains": 2
+  }
+}
+
