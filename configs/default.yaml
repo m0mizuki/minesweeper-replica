@@ -12,3 +12,7 @@ seeds:
   instance: 12345
   observation: 23456
 
+exact:
+  # 全列挙の誤実行を防ぐ明示的な上限
+  max_variables: 20
+  chunk_size: 65536
