@@ -25,6 +25,10 @@ METRIC_PATHS: dict[str, tuple[str, ...]] = {
     ),
     "mcmc_max_r_hat": ("mcmc", "max_finite_r_hat"),
     "mcmc_density_tau": ("mcmc", "mean_density_autocorrelation_time"),
+    "mcmc_overlap_tau": (
+        "mcmc",
+        "mean_planted_overlap_autocorrelation_time",
+    ),
     "mcmc_min_variable_ess": ("mcmc", "minimum_variable_effective_sample_size"),
     "mcmc_planted_overlap": ("overlap", "mcmc_planted_mean"),
     "mcmc_replica_overlap": ("overlap", "mcmc_replica_mean"),
@@ -127,4 +131,3 @@ def aggregate_directory(output_directory: str | Path) -> dict[str, Any]:
         aggregate["config"] = read_json(config_path)
     write_json_atomic(output / "aggregate.json", aggregate)
     return aggregate
-

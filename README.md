@@ -4,7 +4,7 @@ Minesweeper を planted CSP として扱い、Belief Propagation と MCMC の比
 solution-space の統計構造を調べる研究用コードです。研究方針と数理モデルは
 [`docs/README_minesweeper_research.md`](docs/README_minesweeper_research.md) を参照してください。
 
-現在は Milestone 5 まで実装しています。
+現在は Milestone 6 まで実装しています。
 
 - 各セルを独立な Bernoulli(`rho`) で生成（総地雷数は固定しない）
 - ground truth と独立に観測プロトコルを適用
@@ -26,6 +26,10 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 - runごとの厳密なconfig・seed・git commit・timestamp記録
 - 平均、標準偏差、標準誤差、quantile、sample間揺らぎの集約
 - BP/MCMC/Exact、overlap、収束性、自己相関時間のSVG可視化
+- 複数診断を組み合わせた候補密度領域の優先順位付け
+- 候補領域の高密度sweepとsystem-size dependence
+- disorder平均した完全なMCMC/Exact `P(q)` と分布幅・entropy・mode数
+- BP fixed-point数、初期値spread、MCMC mixingの有限サイズ比較
 
 観測プロトコルは次の2種類です。
 
@@ -128,6 +132,43 @@ sweep全体には`aggregate.json`と`phase_scan.svg`を生成します。保存�
 ```powershell
 python scripts/aggregate.py results/rho_small
 ```
+
+## Candidate-region analysis
+
+粗いphase scanの結果から追加計算の候補領域を作成します。候補スコアは
+BP–MCMC差、BP非収束、fixed-point依存性、chain間差、R-hat、overlap自己相関時間、
+ESSを組み合わせたscan内の相対的な優先度です。RSBの確率や判定値ではありません。
+
+```powershell
+python scripts/find_candidates.py results/rho_small/aggregate.json `
+  --output results/candidate_plan.json `
+  --sizes 4x4,6x6,8x8 `
+  --dense-points 11 `
+  --top-k 3 `
+  --padding-points 1 `
+  --disorder-samples 20 `
+  --bp-random-restarts 6 `
+  --mcmc-chains 4
+
+python scripts/run_candidate_study.py results/candidate_plan.json `
+  --output results/candidate_study
+```
+
+候補studyはサイズごとに独立したseed streamを使います。生成物は次の通りです。
+
+- `candidate_analysis.json`: 全サイズ・密度の診断値とbinned `P(q)`
+- `candidate_summary.svg`: BP–MCMC差、fixed-point spread、overlap緩和、`P(q)`幅
+- `overlap_distributions.svg`: 代表密度におけるMCMC/Exactの完全な`P(q)`
+
+保存済みのsize sweepから解析だけをやり直す場合は次を使用します。
+
+```powershell
+python scripts/analyze_candidates.py results/candidate_study --overlap-bins 41
+```
+
+`mode_count`は平滑化したhistogramに基づく探索用heuristicです。有限サイズで離散的な
+overlap値が複数あるだけでも増えるため、多峰性の証拠として単独使用してはいけません。
+またoverlapは各instanceの未知変数集合上で定義され、観測率に応じて変数数が変わります。
 
 テストは、パッケージを editable install した後に標準ライブラリだけで実行できます。
 

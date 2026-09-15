@@ -332,6 +332,15 @@ def _mcmc_summary(mcmc: MCMCMultipleResult) -> dict[str, Any]:
                 [chain.mine_density_autocorrelation_time for chain in mcmc.chains]
             )
         ),
+        "mean_planted_overlap_autocorrelation_time": _mean_or_none(
+            np.array(
+                [
+                    chain.planted_overlap_autocorrelation_time
+                    for chain in mcmc.chains
+                    if chain.planted_overlap_autocorrelation_time is not None
+                ]
+            )
+        ),
         "minimum_variable_effective_sample_size": _min_or_none(
             np.concatenate(
                 [chain.variable_effective_sample_sizes for chain in mcmc.chains]
