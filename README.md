@@ -4,7 +4,7 @@ Minesweeper を planted CSP として扱い、Belief Propagation と MCMC の比
 solution-space の統計構造を調べる研究用コードです。研究方針と数理モデルは
 [`docs/README_minesweeper_research.md`](docs/README_minesweeper_research.md) を参照してください。
 
-現在は Milestone 3 まで実装しています。
+現在は Milestone 4 まで実装しています。
 
 - 各セルを独立な Bernoulli(`rho`) で生成（総地雷数は固定しない）
 - ground truth と独立に観測プロトコルを適用
@@ -18,6 +18,10 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 - BPの収束状態、iteration数、message residualを記録
 - 複数初期値によるfixed-point依存性の比較
 - BP marginalとexact marginalの誤差評価
+- factor graph上の局所BFS blockを用いるblocked Gibbs sampler
+- burn-in、thinning、chain長、変更率、自己相関時間、ESSを記録
+- 複数chainのR-hat、chain間marginal差、replica overlap trace
+- MCMC marginalとexact marginalの誤差評価
 
 観測プロトコルは次の2種類です。
 
@@ -34,6 +38,8 @@ from minesweeper_csp import (
     generate_clues,
     generate_ground_truth,
     generate_observation_mask,
+    MCMCConfig,
+    run_blocked_gibbs,
     run_bp,
     solve_exact,
 )
@@ -65,6 +71,15 @@ bp = run_bp(
     config=BPConfig(damping=0.2, initialization="random", seed=789),
 )
 print(bp.status, bp.iterations, bp.marginals)
+
+mcmc = run_blocked_gibbs(
+    graph,
+    rho=instance.rho,
+    initial_assignment=instance.ground_truth,
+    config=MCMCConfig(block_size=4, burn_in=1000, samples=5000, seed=1011),
+    planted_ground_truth=instance.ground_truth,
+)
+print(mcmc.marginals, mcmc.mine_density_effective_sample_size)
 ```
 
 `solve_exact` は計算量・メモリ量とも変数数に対して指数的です。誤って大規模系を
@@ -76,6 +91,12 @@ BPのmessageは各更新で正規化されます。積によるunderflowを避�
 log-domainで行い、hard constraintやpriorによって両状態の質量がゼロになる場合は
 一様分布で隠さず`infeasible`として返します。`run_bp_multiple`に複数の
 `BPConfig`を渡すことで、初期値ごとの収束とfixed pointの差を比較できます。
+
+MCMCはsingle-site Metropolisではなく、factor graph上で近い変数をBFSで集め、
+block内の全状態から外部を固定した厳密な条件付き分布を作るblocked Gibbsです。
+`acceptance_rate`はGibbs更新には該当しないため`None`とし、実際に状態が変わった
+更新の割合を`changed_update_rate`へ保存します。定数traceのESSだけでは固定変数と
+stuck chainを区別できないため、変更率と複数chainのR-hatを併用してください。
 
 テストは、パッケージを editable install した後に標準ライブラリだけで実行できます。
 

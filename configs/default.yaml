@@ -24,3 +24,12 @@ bp:
   damping: 0.2
   initialization: prior
   seed: 34567
+
+mcmc:
+  sampler: local_bfs_blocked_gibbs
+  block_size: 4
+  burn_in: 1000
+  samples: 5000
+  thinning: 1
+  # 複数chainではchainごとに別seedを指定する
+  seeds: [45678, 56789, 67890, 78901]

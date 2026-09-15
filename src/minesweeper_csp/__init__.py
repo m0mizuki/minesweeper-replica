@@ -26,6 +26,20 @@ from .factor_graph import (
     constraint_residuals,
 )
 from .instance import PlantedInstance, generate_ground_truth
+from .diagnostics import (
+    effective_sample_size,
+    gelman_rubin_r_hat,
+    integrated_autocorrelation_time,
+)
+from .mcmc import (
+    MCMCConfig,
+    MCMCMarginalComparison,
+    MCMCMultipleResult,
+    MCMCResult,
+    compare_mcmc_to_exact,
+    run_blocked_gibbs,
+    run_blocked_gibbs_chains,
+)
 from .observation import (
     ObservationProtocol,
     generate_clues,
@@ -51,12 +65,22 @@ __all__ = [
     "check_csp_consistency",
     "compare_bp_to_exact",
     "constraint_residuals",
+    "compare_mcmc_to_exact",
+    "effective_sample_size",
     "enumerate_feasible_states",
     "generate_clues",
     "generate_ground_truth",
     "generate_observation_mask",
+    "gelman_rubin_r_hat",
+    "integrated_autocorrelation_time",
     "iter_neighbor_cells",
     "run_bp",
     "run_bp_multiple",
+    "run_blocked_gibbs",
+    "run_blocked_gibbs_chains",
     "solve_exact",
+    "MCMCConfig",
+    "MCMCMarginalComparison",
+    "MCMCMultipleResult",
+    "MCMCResult",
 ]
