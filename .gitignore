@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+build/
+dist/
+
+# Experiment outputs can become large and should be curated before committing.
+results/
+

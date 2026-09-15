@@ -1,0 +1,14 @@
+model:
+  Lx: 8
+  Ly: 8
+  rho: 0.15
+
+observation:
+  # all_safe または bernoulli_safe
+  protocol: bernoulli_safe
+  observation_rate: 0.5
+
+seeds:
+  instance: 12345
+  observation: 23456
+
