@@ -11,6 +11,7 @@ from minesweeper_csp.candidate import (
     score_candidate_points,
 )
 from minesweeper_csp.experiment import SweepExperimentConfig, execute_sweep
+from minesweeper_csp.theory import analyze_rs_candidate_directory
 
 
 def metric(mean: float) -> dict:
@@ -149,13 +150,17 @@ class CandidateAnalysisTests(unittest.TestCase):
             )
             output = root / "candidate"
             analysis = execute_candidate_plan(plan, output)
+            theory = analyze_rs_candidate_directory(output)
 
             self.assertEqual(len(analysis["sizes"]), 2)
             self.assertTrue((output / "candidate_analysis.json").exists())
+            self.assertEqual(len(theory["sizes"]), 2)
+            self.assertTrue((output / "rs_theory_analysis.json").exists())
             for name in ("candidate_summary.svg", "overlap_distributions.svg"):
                 path = output / name
                 self.assertTrue(path.exists())
                 ET.parse(path)
+            ET.parse(output / "rs_theory_summary.svg")
             for size in analysis["sizes"]:
                 self.assertEqual(len(size["points"]), 2)
                 for point in size["points"]:

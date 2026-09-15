@@ -4,7 +4,7 @@ Minesweeper を planted CSP として扱い、Belief Propagation と MCMC の比
 solution-space の統計構造を調べる研究用コードです。研究方針と数理モデルは
 [`docs/README_minesweeper_research.md`](docs/README_minesweeper_research.md) を参照してください。
 
-現在は Milestone 6 まで実装しています。
+現在は Milestone 7 まで実装しています。
 
 - 各セルを独立な Bernoulli(`rho`) で生成（総地雷数は固定しない）
 - ground truth と独立に観測プロトコルを適用
@@ -30,6 +30,10 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 - 候補領域の高密度sweepとsystem-size dependence
 - disorder平均した完全なMCMC/Exact `P(q)` と分布幅・entropy・mode数
 - BP fixed-point数、初期値spread、MCMC mixingの有限サイズ比較
+- BP fixed pointでのBethe分配関数・free entropy・entropy
+- factor graphのcycle rankと長さ4のshort-loop数
+- undamped BP mapの数値Jacobianによる有限instance局所安定性
+- Exactに対するBethe誤差とsystem-size dependenceの可視化
 
 観測プロトコルは次の2種類です。
 
@@ -169,6 +173,26 @@ python scripts/analyze_candidates.py results/candidate_study --overlap-bins 41
 `mode_count`は平滑化したhistogramに基づく探索用heuristicです。有限サイズで離散的な
 overlap値が複数あるだけでも増えるため、多峰性の証拠として単独使用してはいけません。
 またoverlapは各instanceの未知変数集合上で定義され、観測率に応じて変数数が変わります。
+
+## RS / RSB theory diagnostics
+
+候補studyの保存済みrunから、Bethe量、factor graph topology、BP fixed pointの局所安定性を
+計算します。
+
+```powershell
+python scripts/analyze_rs_theory.py results/candidate_study --max-edges 256
+```
+
+各runの`theory.json`に加え、study全体の`rs_theory_analysis.json`と
+`rs_theory_summary.svg`を生成します。Jacobianのspectral radiusが1未満であることは、
+その有限instanceのundamped BP fixed pointが局所安定であることだけを意味します。
+これはquenched無限系のAT eigenvalueではなく、1を超えただけでAT線やRSB転移とは
+判定しません。Exactに対するBethe誤差、short loop、MCMC mixing、`P(q)`を合わせて
+解釈してください。
+
+現行posteriorにおけるobservation-maskの扱い、格子short loopによるcavity法の制限、
+random-graph surrogateや1RSBへ進む条件は
+[`docs/RS_RSB_theory_notes.md`](docs/RS_RSB_theory_notes.md)にまとめています。
 
 テストは、パッケージを editable install した後に標準ライブラリだけで実行できます。
 

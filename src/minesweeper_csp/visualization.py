@@ -42,6 +42,8 @@ def _panel(
     y_label: str,
     series: Sequence[tuple[str, list[tuple[float, float, float]]]],
     y_domain: tuple[float, float] | None = None,
+    reference_y: float | None = None,
+    reference_label: str | None = None,
 ) -> str:
     available = [(label, values) for label, values in series if values]
     margin_left, margin_right, margin_top, margin_bottom = 72, 20, 46, 58
@@ -110,6 +112,20 @@ def _panel(
         f'text-anchor="middle" font-size="12" transform="rotate(-90 {x + 14:.1f} '
         f'{plot_y + plot_height / 2:.1f})">{escape(y_label)}</text>'
     )
+
+    if reference_y is not None and y_low <= reference_y <= y_high:
+        position = sy(reference_y)
+        chunks.append(
+            f'<line x1="{plot_x:.1f}" x2="{plot_x + plot_width:.1f}" '
+            f'y1="{position:.1f}" y2="{position:.1f}" stroke="#64748b" '
+            'stroke-width="1.5" stroke-dasharray="6 5"/>'
+        )
+        if reference_label:
+            chunks.append(
+                f'<text x="{plot_x + plot_width - 5:.1f}" y="{position - 6:.1f}" '
+                f'text-anchor="end" font-size="11" fill="#475569">'
+                f'{escape(reference_label)}</text>'
+            )
 
     legend_x = plot_x + 6
     for index, (label, values) in enumerate(available):

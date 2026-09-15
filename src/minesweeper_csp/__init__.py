@@ -62,6 +62,17 @@ from .observation import (
     generate_observation_mask,
     iter_neighbor_cells,
 )
+from .theory import (
+    BetheResult,
+    FactorGraphTopology,
+    RSStabilityLimitError,
+    RSStabilityResult,
+    analyze_rs_candidate_directory,
+    analyze_rs_run,
+    compute_bethe_result,
+    compute_rs_stability,
+    factor_graph_topology,
+)
 
 __all__ = [
     "BPConfig",
@@ -111,4 +122,13 @@ __all__ = [
     "MCMCMultipleResult",
     "MCMCResult",
     "write_candidate_plan",
+    "BetheResult",
+    "FactorGraphTopology",
+    "RSStabilityLimitError",
+    "RSStabilityResult",
+    "analyze_rs_candidate_directory",
+    "analyze_rs_run",
+    "compute_bethe_result",
+    "compute_rs_stability",
+    "factor_graph_topology",
 ]

@@ -686,6 +686,19 @@ CodeX は以下の順番で進める。
 
 - 数値結果をもとに RS / RSB の解析可能性を検討
 
+実装済みの有限サイズ診断:
+
+- BP fixed pointにおけるBethe $\log Z$、free entropy、entropy
+- Exactに対するBethe誤差
+- factor graphのcycle rankと長さ4のshort-loop数
+- undamped BP mapの数値Jacobianとspectral radius
+- system-size・$\rho$依存性の集約と可視化
+
+ここでspectral radiusは有限instanceの局所安定性であり、AT線とは同一視しない。
+格子のshort loop、observation-maskをposterior likelihoodに含めない現行規約、
+1RSBへ進む判定条件の詳細は
+[`RS_RSB_theory_notes.md`](RS_RSB_theory_notes.md)を参照する。
+
 ---
 
 ## 16. CodeX への実装方針
