@@ -62,6 +62,18 @@ class BernoulliGameTests(unittest.TestCase):
         game.reveal(0, 0)
         self.assertEqual(game.response("id").realized_mines, 1)
 
+    def test_probabilities_remain_without_rerunning_bp_after_reveal(self) -> None:
+        game = Game(size=3, rho=0.2, mines={(0, 0)})
+        game.predict_with_bp(SolveRequest(tolerance=1e-12))
+        self.assertAlmostEqual(game.mine_probabilities[(0, 1)], 0.2)
+
+        game.reveal(1, 1)
+
+        self.assertEqual(game.status, GameStatus.playing)
+        self.assertNotIn((1, 1), game.mine_probabilities)
+        self.assertEqual(game.bp_summary.constraints, 0)
+        self.assertAlmostEqual(game.mine_probabilities[(0, 1)], 0.2)
+
 
 class GameApiTests(unittest.TestCase):
     def setUp(self) -> None:

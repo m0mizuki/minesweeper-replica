@@ -171,8 +171,15 @@ class Game:
             self.flood_reveal(row, col)
             self.check_win()
 
-        if len(self.revealed) != previous_revealed or self.status is not previous_status:
-            self.clear_bp_prediction()
+        board_changed = (
+            len(self.revealed) != previous_revealed or self.status is not previous_status
+        )
+        if board_changed:
+            # Keep the last BP result on unopened cells without rerunning BP.
+            for cell in self.revealed:
+                self.mine_probabilities.pop(cell, None)
+            if self.hit_cell is not None:
+                self.mine_probabilities.pop(self.hit_cell, None)
 
     def chord(self, row: int, col: int) -> None:
         neighbors = self.neighbors(row, col)
@@ -257,10 +264,6 @@ class Game:
             cell: float(result.marginals[index])
             for index, cell in enumerate(graph.variable_cells)
         }
-
-    def clear_bp_prediction(self) -> None:
-        self.mine_probabilities.clear()
-        self.bp_summary = None
 
     def check_win(self) -> None:
         if len(self.revealed) == self.size * self.size - len(self.mines):
