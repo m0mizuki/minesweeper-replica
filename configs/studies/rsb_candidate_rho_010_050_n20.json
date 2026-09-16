@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "rho_values": [0.1, 0.2, 0.3, 0.4, 0.5],
+  "sizes": [[3, 3], [4, 4]],
+  "overlap_bins": 11,
+  "selection": {
+    "method": "explicit_grid",
+    "interpretation": "User-specified RSB candidate scan; diagnostic prioritization only, not an RSB decision.",
+    "rho_min": 0.1,
+    "rho_max": 0.5,
+    "selected_rhos": [0.1, 0.2, 0.3, 0.4, 0.5]
+  },
+  "sweeps": [
+    {
+      "name": "Lx003_Ly003",
+      "Lx": 3,
+      "Ly": 3,
+      "config": {
+        "model": {"Lx": 3, "Ly": 3},
+        "observation": {
+          "protocol": "bernoulli_safe",
+          "observation_rate": 0.6
+        },
+        "sweep": {
+          "rho_values": [0.1, 0.2, 0.3, 0.4, 0.5],
+          "disorder_samples": 20,
+          "base_seed": 3542229886944961689
+        },
+        "exact": {"max_variables": 12, "chunk_size": 4096},
+        "bp": {
+          "max_iterations": 300,
+          "tolerance": 1e-9,
+          "damping": 0.2,
+          "initializations": ["prior", "uniform", "random"]
+        },
+        "mcmc": {
+          "sampler": "local_bfs_blocked_gibbs",
+          "block_size": 6,
+          "burn_in": 100,
+          "samples": 300,
+          "thinning": 1,
+          "chains": 2
+        }
+      }
+    },
+    {
+      "name": "Lx004_Ly004",
+      "Lx": 4,
+      "Ly": 4,
+      "config": {
+        "model": {"Lx": 4, "Ly": 4},
+        "observation": {
+          "protocol": "bernoulli_safe",
+          "observation_rate": 0.6
+        },
+        "sweep": {
+          "rho_values": [0.1, 0.2, 0.3, 0.4, 0.5],
+          "disorder_samples": 20,
+          "base_seed": 4222228576027536949
+        },
+        "exact": {"max_variables": 12, "chunk_size": 4096},
+        "bp": {
+          "max_iterations": 300,
+          "tolerance": 1e-9,
+          "damping": 0.2,
+          "initializations": ["prior", "uniform", "random"]
+        },
+        "mcmc": {
+          "sampler": "local_bfs_blocked_gibbs",
+          "block_size": 6,
+          "burn_in": 100,
+          "samples": 300,
+          "thinning": 1,
+          "chains": 2
+        }
+      }
+    }
+  ]
+}

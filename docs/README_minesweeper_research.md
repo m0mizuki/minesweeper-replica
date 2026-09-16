@@ -698,6 +698,8 @@ CodeX は以下の順番で進める。
 格子のshort loop、observation-maskをposterior likelihoodに含めない現行規約、
 1RSBへ進む判定条件の詳細は
 [`RS_RSB_theory_notes.md`](RS_RSB_theory_notes.md)を参照する。
+実行済みの $\rho=0.10$–$0.50$、各点20 disorder sampleの結果と考察は
+[`MILESTONE7_RESULTS_DISCUSSION.md`](MILESTONE7_RESULTS_DISCUSSION.md)に記録する。
 
 ---
 

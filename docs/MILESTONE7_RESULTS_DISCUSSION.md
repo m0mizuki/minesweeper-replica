@@ -1,99 +1,116 @@
-# Milestone 7: 得られた結果と考察
+# Milestone 7: $\rho=0.10$–$0.50$, 20 disorder sample の結果と考察
 
-## 1. この文書の位置づけ
+## 1. 解析の位置づけ
 
-Milestone 6–7 の動作確認として実行した小規模 candidate study と、その保存済み run に対する有限 instance の RS / Bethe 診断をまとめる。解析元は次のファイルである。
+RSB候補探索の統計を改善するため、mine densityを
 
-- `results/candidate_smoke_v2/candidate_plan.json`
-- `results/candidate_smoke_v2/candidate_analysis.json`
-- `results/candidate_smoke_v2/rs_theory_analysis.json`
+$$
+\rho\in\{0.10,0.20,0.30,0.40,0.50\}
+$$
 
-以下の結果は、実装が end-to-end で動作し、どの観測量を本計算で追うべきかを確認するための **smoke study** である。各 $(L,\rho)$ に disorder sample が2個しかないため、相転移や RSB の統計的証拠とはみなさない。
+とし、各 $(L,\rho)$ で20個の独立disorder instanceを計算した。$3\times3$と$4\times4$を合わせて合計200 runである。従来の各点2 sampleのsmoke結果は、本解析で置き換える。
+
+再現用設定と解析元は次の通りである。
+
+- `configs/studies/rsb_candidate_rho_010_050_n20.json`
+- `results/rsb_candidate_rho_010_050_n20/candidate_analysis.json`
+- `results/rsb_candidate_rho_010_050_n20/rs_theory_analysis.json`
+
+`results/`はGit管理対象外である。全200 runには`run.json`、`arrays.npz`、`theory.json`が保存されている。理論解析時のBP再実行と保存済みmarginalの最大差は全runで0であり、seedから完全に再現できた。
 
 ## 2. 実験条件
 
 | 項目 | 設定 |
 |---|---|
 | 系サイズ | $3\times3$, $4\times4$ |
-| mine density | $\rho=0.10, 0.25, 0.40$ |
-| disorder sample | 各点2 |
-| observation | `bernoulli_safe`, observation rate $0.6$ |
-| BP | damping $0.2$, tolerance $10^{-9}$, 最大300 iteration |
-| BP初期値 | prior, uniform, random の3種類 |
-| MCMC | local BFS blocked Gibbs, block size 6 |
-| MCMC長 | burn-in 100、300 samples、thinning 1、2 chains |
+| mine density | 0.10から0.50まで0.10刻み |
+| disorder sample | 各 $(L,\rho)$ で20、合計200 run |
+| observation | `bernoulli_safe`, observation rate 0.6 |
+| BP | damping 0.2、tolerance $10^{-9}$、最大300 iteration |
+| BP初期値 | prior、uniform、random |
+| MCMC | local BFS blocked Gibbs、block size 6 |
+| MCMC長 | burn-in 100、300 retained samples、thinning 1、2 chains |
 | Exact | 最大12未知変数 |
 | overlap histogram | 11 bins |
 | RS安定性 | undamped BP mapの数値Jacobian、最大256 edges |
 
-観測 mask は quenched design として扱い、その生成確率を posterior likelihood には含めていない。従って、この結果に Nishimori identity を仮定していない。
+変更したのは $\rho$ gridとdisorder sample数であり、従来のsmoke studyと比較できるよう、BP・MCMC・観測条件は維持した。
 
-## 3. BP・MCMC・overlap の結果
+## 3. BP・MCMC・overlapの結果
 
-表中の値は disorder 平均である。`q幅` は replica-overlap histogram の $q_{95}-q_{05}$、$\tau_q$ は planted-overlap trace の integrated autocorrelation time である。
+表の値は20 disorder instanceの平均である。BP収束率は3初期値に対する収束割合、$\tau_q$はplanted-overlap traceのintegrated autocorrelation time、$q$幅はinstanceごとの $q_{95}-q_{05}$ の平均である。
 
-| サイズ | $\rho$ | BP–MCMC marginal MAE | BP fixed-point spread | $\tau_q$ | $q$幅 | mode数 |
-|---:|---:|---:|---:|---:|---:|---:|
-| 3×3 | 0.10 | $2.1\times10^{-13}$ | $4.4\times10^{-14}$ | 1.00 | 0.000 | 1 |
-| 3×3 | 0.25 | $1.7\times10^{-12}$ | $4.3\times10^{-12}$ | 1.00 | 0.000 | 1 |
-| 3×3 | 0.40 | 0.0101 | $4.3\times10^{-13}$ | 2.73 | 0.545 | 3 |
-| 4×4 | 0.10 | $2.1\times10^{-12}$ | $1.1\times10^{-11}$ | 1.00 | 0.000 | 1 |
-| 4×4 | 0.25 | 0.0522 | $1.4\times10^{-10}$ | 5.13 | 0.727 | 2 |
-| 4×4 | 0.40 | 0.1699 | $1.9\times10^{-10}$ | 9.14 | 1.000 | 2 |
+| サイズ | $\rho$ | BP収束率 | BP–MCMC MAE | fixed-point spread | $\tau_q$ | $q$幅 | mean max finite R-hat | mean min ESS |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 3×3 | 0.10 | 1.000 | 0.0048 | $2.7\times10^{-11}$ | 2.84 | 0.136 | 1.011 | 243.5 |
+| 3×3 | 0.20 | 0.917 | 0.0040 | $6.8\times10^{-11}$ | 2.12 | 0.264 | 1.010 | 232.2 |
+| 3×3 | 0.30 | 0.900 | 0.0202 | 0.0278 | 3.10 | 0.600 | 1.012 | 186.9 |
+| 3×3 | 0.40 | 1.000 | 0.0178 | $2.7\times10^{-10}$ | 3.58 | 0.518 | 1.012 | 179.5 |
+| 3×3 | 0.50 | 0.850 | 0.0257 | $1.9\times10^{-10}$ | 4.45 | 0.636 | 1.016 | 118.3 |
+| 4×4 | 0.10 | 0.967 | 0.0087 | $6.4\times10^{-10}$ | 4.92 | 0.145 | 1.014 | 207.8 |
+| 4×4 | 0.20 | 0.867 | 0.0164 | $4.3\times10^{-11}$ | 6.59 | 0.345 | 1.026 | 116.4 |
+| 4×4 | 0.30 | 0.917 | 0.0320 | 0.0843 | 5.44 | 0.391 | 1.023 | 164.9 |
+| 4×4 | 0.40 | 0.817 | 0.0460 | $7.5\times10^{-11}$ | 6.57 | 0.455 | 1.024 | 129.2 |
+| 4×4 | 0.50 | 0.850 | 0.0357 | $3.3\times10^{-10}$ | 10.22 | 0.573 | 1.070 | 75.6 |
 
-観測された傾向は次の通りである。
+### 3.1 観測された傾向
 
-1. $\rho=0.10$ では両サイズとも BP–MCMC 差、overlap緩和、$P(q)$幅が小さい。
-2. $4\times4$ では $\rho=0.25$ から BP–MCMC MAE、$\tau_q$、$q$幅が同時に増え、$\rho=0.40$ でさらに増大した。
-3. 3種類の初期値間の BP marginal spread は全点で $10^{-10}$ 程度以下であり、この sample から複数の明確な BP fixed point は確認できなかった。
-4. mode数は高密度側で増えたが、11-bin histogram と少数 sample に依存する探索用 heuristic である。多峰的な pure-state structure の証拠として単独では使えない。
+1. $4\times4$のBP–MCMC差は $\rho=0.10$から0.40まで0.0087、0.0164、0.0320、0.0460と増加した。0.50では0.0357へ低下したが、この点ではMCMC診断が最も悪いため、物理的な減少とはまだ解釈できない。
+2. $4\times4$の$q$幅は0.145から0.573まで密度とともに広がった。$\tau_q$も $\rho=0.50$ で10.22へ増加した。
+3. 明確なBP初期値依存性は $\rho=0.30$ に集中した。marginal spreadが $10^{-6}$ を超えたinstanceは、$3\times3$で1/20、$4\times4$で4/20であり、それ以外の密度では0/20だった。
+4. BP収束率の最小値は $4\times4,\rho=0.40$ の0.817だった。fixed-point multiplicityのピークと非収束率のピークは同じ密度ではない。
 
-## 4. RS / Bethe 診断の結果
+## 4. MCMC mixingの評価
 
-$\lambda_{\mathrm{BP}}$ は undamped BP map のJacobian spectral radius、`Bethe誤差`は $|\log Z_{\mathrm B}-\log Z|/|V|$ である。括弧内は値を計算できた instance 数であり、BP非収束などにより2未満の場合がある。
+$4\times4,\rho=0.50$では20 instance中13件で最大finite R-hatが1.01を超え、7件では1.05を超えた。最大値は1.442だった。mean min ESSも75.6まで低下し、chain間marginal spreadは0.1875だった。
 
-| サイズ | $\rho$ | BP収束率 | $\lambda_{\mathrm{BP}}$ | 局所不安定率 | Bethe誤差 | boundary message率 | 4-cycle密度 |
+さらに、全200 instanceに少なくとも1個のinfinite R-hat変数があった。本実装でinfinite R-hatになるのは、各chain内では変数が定数のままなのにchain間でその定数値が異なる場合であり、初期状態依存性または非混合を明示的に表す。表の`max finite R-hat`はこの成分を除いた最大値なので、それだけを見るとmixingを過大評価する。
+
+従って高密度側だけでなく、今回のMCMCによるBP–MCMC差と$P(q)$全体を平衡posteriorの確定値として解釈するには、現在のburn-in 100、300 samples、2 chainsでは不足している。infinite R-hat変数数、finite R-hat、ESS、変更率、chain別overlap traceを併用し、block sizeの拡大またはsamplerの改良後に再評価する必要がある。
+
+今回のscanでは「RSBらしい遅化を確定した」のではない。全密度でsampler検証が必要であり、その中でも $\rho=0.50$ の有限R-hat、ESS、$\tau_q$が最も悪い。
+
+## 5. RS / Bethe診断
+
+$\lambda_{\mathrm{BP}}$はundamped BP mapのJacobian spectral radiusである。局所不安定率は、BPが収束して$\lambda_{\mathrm{BP}}$を計算できたinstanceのうち $\lambda_{\mathrm{BP}}>1$ となった割合である。Bethe誤差は $|\log Z_{\mathrm B}-\log Z|/|V|$。`Exact数`はBethe–Exact比較が可能だったinstance数である。
+
+| サイズ | $\rho$ | primary BP収束率 | mean $\lambda_{\mathrm{BP}}$ | 局所不安定率 | boundary率 | Bethe誤差 | Exact数 |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 3×3 | 0.10 | 1.00 | 0.000 (2/2) | 0.00 | $1.4\times10^{-17}$ (2/2) | 0.385 | 1.750 |
-| 3×3 | 0.25 | 1.00 | 0.000 (2/2) | 0.00 | $7.4\times10^{-17}$ (2/2) | 0.670 | 1.583 |
-| 3×3 | 0.40 | 0.50 | 0.000 (1/2) | 0.00 | 0.000 (1/2) | 0.667 | 0.771 |
-| 4×4 | 0.10 | 1.00 | 0.000 (2/2) | 0.00 | $7.4\times10^{-17}$ (2/2) | 0.841 | 1.229 |
-| 4×4 | 0.25 | 0.50 | 1.430 (1/2) | 1.00 | 0.0360 (1/2) | 0.500 | 0.550 |
-| 4×4 | 0.40 | 1.00 | 0.716 (2/2) | 0.50 | 0.0996 (2/2) | 0.409 | 1.266 |
+| 3×3 | 0.10 | 1.00 | 0.000 | 0.000 | 0.227 | $3.5\times10^{-17}$ | 20 |
+| 3×3 | 0.20 | 0.90 | 0.094 | 0.056 | 0.497 | 0.0066 | 18 |
+| 3×3 | 0.30 | 0.90 | 0.231 | 0.111 | 0.289 | 0.0198 | 18 |
+| 3×3 | 0.40 | 1.00 | 0.136 | 0.100 | 0.215 | 0.0079 | 20 |
+| 3×3 | 0.50 | 0.85 | 0.141 | 0.000 | 0.120 | 0.0100 | 17 |
+| 4×4 | 0.10 | 0.95 | 0.130 | 0.053 | 0.570 | 0.0050 | 19 |
+| 4×4 | 0.20 | 0.85 | 0.077 | 0.059 | 0.658 | 0.0033 | 17 |
+| 4×4 | 0.30 | 0.90 | 0.211 | 0.111 | 0.625 | 0.0275 | 17 |
+| 4×4 | 0.40 | 0.80 | 0.219 | 0.125 | 0.593 | 0.0112 | 16 |
+| 4×4 | 0.50 | 0.85 | 0.257 | 0.176 | 0.300 | 0.0159 | 13 |
 
-ここで $4\times4,\rho=0.40$ の $\lambda_{\mathrm{BP}}=0.716$ は2 instanceの平均であり、局所不安定率0.5が示すように、少なくとも一方は $\lambda_{\mathrm{BP}}>1$ である。平均値だけで局所安定と判定してはならない。
+### 5.1 解釈
 
-## 5. 考察
+- mean $\lambda_{\mathrm{BP}}$ は全点で1未満だが、平均は少数の局所不安定instanceを隠す。$4\times4$の局所不安定率は高密度側で0.111、0.125、0.176と増えた。
+- Bethe誤差は単調ではなく、最大は $4\times4,\rho=0.30$ の0.0275だった。この点はBP fixed-point dependenceも最大であり、追加検証の第一候補である。
+- boundary message率は $4\times4$ の0.10–0.40で0.57–0.66と高い。message clippingの影響が残るため、小さいspectral radiusを強いRS安定性とは解釈しない。
+- 4-cycle密度は全点で有限であり、格子factor graphはlocally tree-likeではない。Bethe誤差やBP–MCMC差にはshort-loop errorも含まれる。
 
-### 5.1 数値的に疑わしい領域
+## 6. 現段階の考察
 
-$4\times4$ の $\rho=0.25$–$0.40$ では、BP–MCMC差、overlap autocorrelation、$P(q)$幅、Bethe誤差、局所BP不安定性の複数指標が同時に悪化した。この一致は、本計算で優先的に調べる領域としては妥当である。
+20 disorder sampleへ増やしたことで、従来の2 sampleで見えた単一の大きな値がensemble全体の代表ではないことが分かった。警告は1点に集中せず、異なる密度で異なる形で現れている。
 
-ただし $\rho=0.25$ では BP と理論量を評価できたのが1/2 instanceのみである。$\rho=0.40$ でも局所安定性は instance 間で一致していない。現状から「臨界密度が0.25付近にある」と推定することはできない。
+- $\rho=0.30$: BP fixed-point dependenceとBethe誤差が最大
+- $\rho=0.40$: BP収束率が最低、BP–MCMC MAEが最大
+- $\rho=0.50$: MCMC relaxation、finite R-hat、ESSが最も悪く、局所BP不安定率も最大
 
-### 5.2 RSB以外の説明
+このため、現時点で単一の「RSB候補点」を決めるより、BP側の診断から $\rho=0.30$–$0.50$を暫定候補領域として扱う方が妥当である。MCMC側は全200 instanceで初期状態依存性が残っており、特に $\rho=0.50$ は非平衡の影響を強く受けている可能性がある。
 
-factor graph には1変数あたりおよそ0.55–1.75個の4-cycleがあり、short loop は希薄ではない。従って Bethe誤差や BP–MCMC差は、locally-tree-like 仮定の破れによる loopy-BP approximation error でも説明できる。
+> 本scanは、$4\times4$の $\rho=0.30$–$0.50$ にBP多重解、非収束、局所不安定性、overlap緩和の複合的な警告が存在することを示した。しかし、system sizeは2種類のみで、MCMC mixingとshort-loop効果も十分に分離できていないため、RSB転移またはAT線の証拠とはしない。
 
-また、MCMCは高密度側で $\tau_q$ が増えている。burn-in 100、保持 sample 300という短い chain では、平衡化不足や metastability によって MCMC marginal と $P(q)$ が歪む可能性がある。現時点では「BPが誤っている」のか「MCMCが混合していない」のかを完全には切り分けられていない。
+## 7. 次の優先計算
 
-### 5.3 boundary messageの影響
-
-messageが0または1に近い instance が多く、boundary message率は最大0.84であった。この場合、cavity log odds の有限差分では clipping の影響が大きい。$\lambda_{\mathrm{BP}}=0$ は強く凍結された message によって得られる場合があり、RS安定性の強い証拠ではない。spectral radius は boundary fraction と必ず併記する。
-
-### 5.4 現段階の結論
-
-今回の結果は、$4\times4$ の中・高密度側を追加検証する理由を与えるが、RSB転移の存在やAT線を示してはいない。特に、disorder数、system size、MCMC長が不足し、short loop と boundary clipping の影響も大きい。
-
-従って Milestone 7 の結論は次のように限定する。
-
-> 有限instanceのBethe精度と局所BP安定性を、MCMC mixing、$P(q)$、short-loop topologyと同じ parameter grid 上で比較できるようになった。smoke studyでは $4\times4,\rho=0.25$–$0.40$ に複合的な警告が見られたが、RSBの判定には至らない。
-
-## 6. 次に必要な検証
-
-1. $\rho=0.20$–$0.45$ を細分化し、各点20以上の disorder sample を取る。
-2. $6\times6$, $8\times8$ へ拡大し、同じ異常がサイズとともに強まるか調べる。
-3. MCMCのburn-inとchain長を増やし、chain別trace、R-hat、ESS、初期状態依存性を再確認する。
-4. Jacobianの有限差分幅とclipping probabilityを変え、spectral radiusの数値安定性を確認する。
-5. Exact可能サイズでは Bethe誤差を4-cycle密度で層別化し、short-loop errorとの相関を測る。
-6. 格子モデルを保つcluster variational法と、別モデルとして定義したlocally-tree-like surrogateのどちらを解析対象にするか決定する。
+1. まず小規模Exact可能系でblock sizeを増やすか、より大域的なconstraint-preserving moveを導入し、infinite R-hat変数を解消する。
+2. $\rho=0.30,0.40,0.50$でMCMCを4 chains以上、burn-inとsample数を現在の少なくとも10倍にして再計算する。
+3. infinite R-hatがなく、finite R-hat $<1.01$、十分なESS、初期状態間一致を満たしたinstanceでBP–MCMC差と$P(q)$を再評価する。
+4. $6\times6$、$8\times8$を追加し、BP多重解率、非収束率、$\lambda_{\mathrm{BP}}>1$率、overlap susceptibilityのサイズ依存性を調べる。
+5. $\rho=0.25$–$0.45$を0.025または0.05刻みに細分化し、0.30付近のfixed-point dependenceが有限幅の領域か確認する。
+6. Jacobianの有限差分幅とclipping probabilityを変え、boundary messageを含むspectral radiusの頑健性を確認する。

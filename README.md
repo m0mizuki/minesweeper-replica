@@ -193,8 +193,21 @@ python scripts/analyze_rs_theory.py results/candidate_study --max-edges 256
 現行posteriorにおけるobservation-maskの扱い、格子short loopによるcavity法の制限、
 random-graph surrogateや1RSBへ進む条件は
 [`docs/RS_RSB_theory_notes.md`](docs/RS_RSB_theory_notes.md)にまとめています。
-小規模smoke studyで実際に得られた数値、考察、限界、次の検証項目は
+実際に得られた数値、考察、限界、次の検証項目は
 [`docs/MILESTONE7_RESULTS_DISCUSSION.md`](docs/MILESTONE7_RESULTS_DISCUSSION.md)を参照してください。
+
+同文書の報告値は、次の再現用設定による $\rho=0.10$–$0.50$、各点20 disorder
+sampleの計算結果です。
+
+```powershell
+python scripts/run_candidate_study.py `
+  configs/studies/rsb_candidate_rho_010_050_n20.json `
+  --output results/rsb_candidate_rho_010_050_n20
+
+python scripts/analyze_rs_theory.py `
+  results/rsb_candidate_rho_010_050_n20 `
+  --max-edges 256
+```
 
 テストは、パッケージを editable install した後に標準ライブラリだけで実行できます。
 
