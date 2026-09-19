@@ -250,33 +250,10 @@ def _binary_states(number_of_variables: int) -> BoolMatrix:
     return ((codes[:, None] >> shifts[None, :]) & np.uint64(1)).astype(np.bool_)
 
 
-def _conditional_probabilities(states: BoolMatrix, rho: float) -> FloatVector:
-    mine_counts = states.sum(axis=1, dtype=np.int_)
-    block_size = states.shape[1]
-    if rho == 0.0:
-        positive = mine_counts == 0
-        log_weights = np.zeros(int(positive.sum()), dtype=np.float64)
-    elif rho == 1.0:
-        positive = mine_counts == block_size
-        log_weights = np.zeros(int(positive.sum()), dtype=np.float64)
-    else:
-        positive = np.ones(states.shape[0], dtype=np.bool_)
-        log_weights = mine_counts * math.log(rho) + (
-            block_size - mine_counts
-        ) * math.log1p(-rho)
-    probabilities = np.zeros(states.shape[0], dtype=np.float64)
-    if positive.any():
-        maximum = float(log_weights.max())
-        weights = np.exp(log_weights - maximum)
-        probabilities[positive] = weights / weights.sum()
-    return probabilities
-
-
 def _sample_block_conditional(
     graph: FactorGraph,
     state: BoolVector,
     block: tuple[int, ...],
-    rho: float,
     rng: np.random.Generator,
 ) -> BoolVector:
     candidates = _binary_states(len(block))
@@ -302,10 +279,7 @@ def _sample_block_conditional(
     feasible_candidates = candidates[feasible]
     if feasible_candidates.shape[0] == 0:
         raise RuntimeError("blocked conditional has no feasible assignment")
-    probabilities = _conditional_probabilities(feasible_candidates, rho)
-    if probabilities.sum() == 0.0:
-        raise RuntimeError("blocked conditional has zero posterior mass")
-    selected = int(rng.choice(feasible_candidates.shape[0], p=probabilities))
+    selected = int(rng.integers(feasible_candidates.shape[0]))
     return feasible_candidates[selected]
 
 
@@ -324,7 +298,10 @@ def run_blocked_gibbs(
     config: MCMCConfig | None = None,
     planted_ground_truth: NDArray[np.bool_] | None = None,
 ) -> MCMCResult:
-    """Run a local BFS-blocked Gibbs chain targeting the exact posterior."""
+    """Run blocked Gibbs for the uniform measure on feasible assignments.
+
+    ``rho`` is planted-instance metadata and does not enter transition weights.
+    """
 
     if isinstance(rho, bool) or not isinstance(rho, (int, float, np.number)):
         raise TypeError("rho must be a real number")
@@ -336,8 +313,6 @@ def run_blocked_gibbs(
         raise TypeError("config must be an MCMCConfig")
 
     state = _coerce_assignment(graph, initial_assignment, name="initial_assignment")
-    if (rho == 0.0 and state.any()) or (rho == 1.0 and not state.all()):
-        raise ValueError("initial_assignment has zero Bernoulli-prior mass")
     initial = state.copy()
 
     planted = None
@@ -359,7 +334,7 @@ def run_blocked_gibbs(
             block = _choose_local_block(
                 graph.number_of_variables, adjacency, config.block_size, rng
             )
-            updated = _sample_block_conditional(graph, state, block, rho, rng)
+            updated = _sample_block_conditional(graph, state, block, rng)
             if np.any(state[list(block)] != updated):
                 changed_updates += 1
             state[list(block)] = updated
@@ -499,14 +474,10 @@ def compare_mcmc_to_exact(
         raise ValueError("exact posterior has zero mass")
     if isinstance(mcmc, MCMCResult):
         marginals = mcmc.marginals
-        rho = mcmc.rho
     elif isinstance(mcmc, MCMCMultipleResult):
         marginals = mcmc.pooled_marginals
-        rho = mcmc.chains[0].rho
     else:
         raise TypeError("mcmc must be an MCMCResult or MCMCMultipleResult")
-    if rho != exact.rho:
-        raise ValueError("MCMC and exact results use different rho values")
     if marginals.shape != exact.marginals.shape:
         raise ValueError("MCMC and exact results have different numbers of variables")
     differences = marginals - exact.marginals

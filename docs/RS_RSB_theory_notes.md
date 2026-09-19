@@ -8,14 +8,17 @@
 
 ## 1. 解析対象となる測度
 
-コードが比較する target distribution は、未知セル上の Bernoulli 事前分布と観測 clue の hard constraint の積である。
+コードが比較する target distribution は、観測 clue の hard constraint を満たす配置上の一様分布である。
 
 $$
 P(\boldsymbol{x}\mid\boldsymbol{y},A)
-\propto
+=\frac{1}{Z}
 \prod_{a\in A}\mathbf 1\!\left(\sum_{i\in\partial a}x_i=y_a\right)
-\prod_{i\in V}(1-\rho)^{1-x_i}\rho^{x_i}.
+.
 $$
+
+$\rho$ は planted instance の生成密度であり、この推論測度の外部パラメータではない。
+同じ観測 factor graph に対する Exact・BP・MCMC の重みは $\rho$ に依存しない。
 
 ここでは観測集合 $A$ を quenched design として固定し、その生成確率を posterior likelihood に含めない。現行の `bernoulli_safe` は ground truth が安全なセルだけを観測するため、$A$ 自体が ground truth と相関する。従って「観測 mask も含めた完全な Bayes posterior」を扱うなら測度を再定義する必要がある。現行測度のまま Nishimori identity を仮定してはならない。
 
@@ -39,7 +42,6 @@ $$
 
 $$
 H_{\mathrm B}=\log Z_{\mathrm B}
--\sum_i\sum_{x_i}b_i(x_i)\log P_0(x_i)
 $$
 
 となる。tree factor graph では Exact と一致する。loopy graph では差

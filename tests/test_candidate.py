@@ -82,7 +82,7 @@ def coarse_config() -> SweepExperimentConfig:
                 "max_iterations": 100,
                 "tolerance": 1e-9,
                 "damping": 0.2,
-                "initializations": ["prior", "random"],
+                "initializations": ["uniform", "random"],
             },
             "mcmc": {
                 "sampler": "local_bfs_blocked_gibbs",
@@ -128,7 +128,7 @@ class CandidateAnalysisTests(unittest.TestCase):
         self.assertEqual(len(set(seeds)), 2)
         self.assertEqual(
             plan["sweeps"][0]["config"]["bp"]["initializations"],
-            ["prior", "uniform", "random", "random"],
+            ["uniform", "random", "random"],
         )
 
     def test_candidate_study_runs_size_analysis_and_pq_figures(self) -> None:

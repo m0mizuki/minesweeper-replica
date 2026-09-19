@@ -19,27 +19,27 @@ def unconstrained_graph(shape: tuple[int, int]):
 
 
 class ExactSolverTests(unittest.TestCase):
-    def test_unconstrained_nonuniform_prior(self) -> None:
+    def test_unconstrained_measure_is_uniform(self) -> None:
         graph = unconstrained_graph((1, 2))
         planted = np.array([[False, False]], dtype=np.bool_)
         result = solve_exact(graph, 0.25, planted_ground_truth=planted)
 
         self.assertEqual(result.number_of_feasible_solutions, 4)
         self.assertEqual(result.mine_count_histogram, (1, 2, 1))
-        self.assertAlmostEqual(result.partition_function, 1.0)
-        self.assertAlmostEqual(result.log_partition_function, 0.0)
-        np.testing.assert_allclose(result.marginals, [0.25, 0.25])
+        self.assertAlmostEqual(result.partition_function, 4.0)
+        self.assertAlmostEqual(result.log_partition_function, math.log(4.0))
+        np.testing.assert_allclose(result.marginals, [0.5, 0.5])
         np.testing.assert_allclose(
             result.planted_overlap.values, [1.0, 0.0, -1.0]
         )
         np.testing.assert_allclose(
-            result.planted_overlap.probabilities, [0.5625, 0.375, 0.0625]
+            result.planted_overlap.probabilities, [0.25, 0.5, 0.25]
         )
         np.testing.assert_allclose(
             result.replica_overlap.probabilities,
-            [0.390625, 0.46875, 0.140625],
+            [0.25, 0.5, 0.25],
         )
-        self.assertAlmostEqual(result.replica_overlap.mean, 0.25)
+        self.assertAlmostEqual(result.replica_overlap.mean, 0.0)
 
     def test_equality_constraint_enumerates_only_feasible_states(self) -> None:
         truth = np.array([[True, False, False]], dtype=np.bool_)
@@ -52,7 +52,7 @@ class ExactSolverTests(unittest.TestCase):
 
         result = solve_exact(graph, 0.2, planted_ground_truth=truth)
         self.assertEqual(result.number_of_feasible_solutions, 2)
-        self.assertAlmostEqual(result.partition_function, 2 * 0.2 * 0.8)
+        self.assertAlmostEqual(result.partition_function, 2.0)
         np.testing.assert_allclose(result.posterior_probabilities, [0.5, 0.5])
         np.testing.assert_allclose(result.marginals, [0.5, 0.5])
         np.testing.assert_allclose(
@@ -89,25 +89,25 @@ class ExactSolverTests(unittest.TestCase):
         self.assertTrue(np.isnan(result.marginals).all())
         self.assertIsNone(result.replica_overlap)
 
-    def test_prior_boundary_can_give_feasible_states_zero_mass(self) -> None:
+    def test_rho_boundary_does_not_change_feasible_state_mass(self) -> None:
         truth = np.array([[True, False, False]], dtype=np.bool_)
         observed = np.array([[False, True, False]], dtype=np.bool_)
         graph = build_factor_graph(observed, generate_clues(truth, observed))
         result = solve_exact(graph, 0.0)
 
         self.assertEqual(result.number_of_feasible_solutions, 2)
-        self.assertFalse(result.has_posterior_mass)
-        np.testing.assert_array_equal(result.posterior_probabilities, [0.0, 0.0])
+        self.assertTrue(result.has_posterior_mass)
+        np.testing.assert_array_equal(result.posterior_probabilities, [0.5, 0.5])
 
-    def test_rho_endpoints_select_the_supported_assignment(self) -> None:
+    def test_rho_endpoints_do_not_weight_the_inference_measure(self) -> None:
         graph = unconstrained_graph((1, 3))
         zero = solve_exact(graph, 0.0)
         one = solve_exact(graph, 1.0)
 
-        np.testing.assert_allclose(zero.marginals, [0.0, 0.0, 0.0])
-        np.testing.assert_allclose(one.marginals, [1.0, 1.0, 1.0])
-        self.assertAlmostEqual(zero.partition_function, 1.0)
-        self.assertAlmostEqual(one.partition_function, 1.0)
+        np.testing.assert_allclose(zero.marginals, [0.5, 0.5, 0.5])
+        np.testing.assert_allclose(one.marginals, [0.5, 0.5, 0.5])
+        self.assertAlmostEqual(zero.partition_function, 8.0)
+        self.assertAlmostEqual(one.partition_function, 8.0)
 
     def test_size_guard_prevents_accidental_large_enumeration(self) -> None:
         graph = unconstrained_graph((1, 4))

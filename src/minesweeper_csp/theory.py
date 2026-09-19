@@ -181,8 +181,6 @@ def compute_bethe_result(
 
     if require_converged and not bp.converged:
         raise ValueError("Bethe quantities require a converged BP result")
-    if bp.rho < 0.0 or bp.rho > 1.0:
-        raise ValueError("invalid BP prior")
     expected_edges = tuple(
         (factor, variable)
         for factor, variables in enumerate(graph.factor_to_variables)
@@ -191,13 +189,9 @@ def compute_bethe_result(
     if expected_edges != tuple(zip(bp.edge_factors, bp.edge_variables)):
         raise ValueError("BP result does not match the supplied factor graph")
 
-    prior = np.array([1.0 - bp.rho, bp.rho], dtype=np.float64)
     variable_logs = []
     for variable in range(graph.number_of_variables):
-        log_terms = np.array(
-            [_log_probability(float(prior[0])), _log_probability(float(prior[1]))],
-            dtype=np.float64,
-        )
+        log_terms = np.zeros(2, dtype=np.float64)
         for edge, edge_variable in enumerate(bp.edge_variables):
             if edge_variable == variable:
                 message = bp.factor_to_variable_messages[edge]
@@ -220,17 +214,7 @@ def compute_bethe_result(
         raise ValueError("Bethe normalizer has zero mass")
 
     log_partition = float(sum(variable_logs) + sum(factor_logs) - sum(edge_logs))
-    expected_log_prior = 0.0
-    for marginal in bp.marginals:
-        for probability, prior_probability in (
-            (1.0 - float(marginal), 1.0 - bp.rho),
-            (float(marginal), bp.rho),
-        ):
-            if probability > 0.0:
-                if prior_probability == 0.0:
-                    raise ValueError("BP marginal assigns mass outside prior support")
-                expected_log_prior += probability * math.log(prior_probability)
-    entropy = log_partition - expected_log_prior
+    entropy = log_partition
     variable_count = graph.number_of_variables
     return BetheResult(
         log_partition_function=log_partition,
@@ -262,7 +246,6 @@ def _sigmoid(log_odds: np.ndarray) -> FloatMatrix:
 
 def _undamped_bp_map(
     graph: FactorGraph,
-    rho: float,
     variable_log_odds: np.ndarray,
     clipping: float,
 ) -> np.ndarray:
@@ -281,13 +264,11 @@ def _undamped_bp_map(
             raise ValueError("perturbed BP map reached zero factor mass")
         factor_to_variable[edge] = message
 
-    prior = np.array([1.0 - rho, rho], dtype=np.float64)
     updated = np.empty_like(variable_to_factor)
     for edge, variable in enumerate(layout.edge_variables):
         message = _variable_message(
             edge,
             variable,
-            prior,
             layout,
             factor_to_variable,
         )
@@ -341,12 +322,8 @@ def compute_rs_stability(
             minus = base_log_odds.copy()
             plus[source] += perturbation
             minus[source] -= perturbation
-            mapped_plus = _undamped_bp_map(
-                graph, bp.rho, plus, clipping_probability
-            )
-            mapped_minus = _undamped_bp_map(
-                graph, bp.rho, minus, clipping_probability
-            )
+            mapped_plus = _undamped_bp_map(graph, plus, clipping_probability)
+            mapped_minus = _undamped_bp_map(graph, minus, clipping_probability)
             jacobian[:, source] = (mapped_plus - mapped_minus) / (
                 2.0 * perturbation
             )

@@ -94,7 +94,7 @@ class TheoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compute_rs_stability(graph, bp, max_edges=-1)
 
-    def test_unconstrained_graph_has_unit_bethe_partition(self) -> None:
+    def test_unconstrained_graph_counts_all_assignments(self) -> None:
         observed = np.zeros((2, 2), dtype=np.bool_)
         clues = np.full((2, 2), -1, dtype=np.int_)
         graph = build_factor_graph(observed, clues)
@@ -102,7 +102,8 @@ class TheoryTests(unittest.TestCase):
         bethe = compute_bethe_result(graph, bp)
         stability = compute_rs_stability(graph, bp)
 
-        self.assertAlmostEqual(bethe.log_partition_function, 0.0)
+        self.assertAlmostEqual(bethe.log_partition_function, math.log(16.0))
+        self.assertAlmostEqual(bethe.entropy, math.log(16.0))
         self.assertAlmostEqual(stability.spectral_radius, 0.0)
         self.assertEqual(stability.jacobian.shape, (0, 0))
 
@@ -124,7 +125,7 @@ class TheoryTests(unittest.TestCase):
                     "max_iterations": 100,
                     "tolerance": 1e-10,
                     "damping": 0.2,
-                    "initializations": ["prior"],
+                    "initializations": ["uniform"],
                 },
                 "mcmc": {
                     "sampler": "local_bfs_blocked_gibbs",

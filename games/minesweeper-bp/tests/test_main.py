@@ -37,12 +37,12 @@ class BernoulliGameTests(unittest.TestCase):
         self.assertEqual(game.status, GameStatus.lost)
         self.assertEqual(game.hit_cell, (0, 0))
 
-    def test_bp_without_clues_returns_bernoulli_prior(self) -> None:
+    def test_bp_without_clues_returns_uniform_marginals(self) -> None:
         game = Game.create(size=3, rho=0.23, seed=7)
         game.predict_with_bp(SolveRequest())
         self.assertEqual(game.bp_summary.status, "converged")
         self.assertEqual(game.bp_summary.constraints, 0)
-        np.testing.assert_allclose(list(game.mine_probabilities.values()), 0.23)
+        np.testing.assert_allclose(list(game.mine_probabilities.values()), 0.5)
 
     def test_bp_uses_revealed_clue_but_not_flags_or_total_count(self) -> None:
         game = Game(size=3, rho=0.2, mines={(0, 0)})
@@ -65,14 +65,14 @@ class BernoulliGameTests(unittest.TestCase):
     def test_probabilities_remain_without_rerunning_bp_after_reveal(self) -> None:
         game = Game(size=3, rho=0.2, mines={(0, 0)})
         game.predict_with_bp(SolveRequest(tolerance=1e-12))
-        self.assertAlmostEqual(game.mine_probabilities[(0, 1)], 0.2)
+        self.assertAlmostEqual(game.mine_probabilities[(0, 1)], 0.5)
 
         game.reveal(1, 1)
 
         self.assertEqual(game.status, GameStatus.playing)
         self.assertNotIn((1, 1), game.mine_probabilities)
         self.assertEqual(game.bp_summary.constraints, 0)
-        self.assertAlmostEqual(game.mine_probabilities[(0, 1)], 0.2)
+        self.assertAlmostEqual(game.mine_probabilities[(0, 1)], 0.5)
 
 
 class GameApiTests(unittest.TestCase):
@@ -100,7 +100,7 @@ class GameApiTests(unittest.TestCase):
             for row in payload["cells"]
             for cell in row
         ]
-        np.testing.assert_allclose(probabilities, 0.25)
+        np.testing.assert_allclose(probabilities, 0.5)
 
     def test_invalid_new_game_parameters_are_rejected(self) -> None:
         with self.assertRaises(ValidationError):

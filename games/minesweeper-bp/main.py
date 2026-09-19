@@ -242,7 +242,7 @@ class Game:
                 max_iterations=request.max_iterations,
                 tolerance=request.tolerance,
                 damping=request.damping,
-                initialization="prior",
+                initialization="uniform",
             ),
         )
 

@@ -197,7 +197,7 @@ def build_candidate_plan(
     if selected_chains < 2:
         raise ValueError("mcmc_chains must be at least two")
 
-    initializations = ["prior", "uniform"] + [
+    initializations = ["uniform"] + [
         "random" for _ in range(bp_random_restarts)
     ]
     sweeps = []

@@ -1,5 +1,13 @@
 # Milestone 7: $\rho=0.10$–$0.50$, 20 disorder sample の結果と考察
 
+> **旧モデルによる結果（再計算が必要）**
+>
+> この文書の数値は、未知変数を Bernoulli($\rho$) 事前分布で重み付けしていた
+> 旧 target distribution で計算したものである。現行モデルは clue 制約を満たす
+> 配置上の一様分布であり、推論重みに $\rho$ を含めない。そのため、以下の数値を
+> 現行モデルの結果として引用・比較してはならない。設定ファイルは現行モデル向けに
+> 更新済みであり、同じ条件で Exact・BP・MCMC・Bethe 診断を再実行する必要がある。
+
 ## 1. 解析の位置づけ
 
 RSB候補探索の統計を改善するため、mine densityを
@@ -27,7 +35,7 @@ $$
 | disorder sample | 各 $(L,\rho)$ で20、合計200 run |
 | observation | `bernoulli_safe`, observation rate 0.6 |
 | BP | damping 0.2、tolerance $10^{-9}$、最大300 iteration |
-| BP初期値 | prior、uniform、random |
+| BP初期値 | uniform、random（複数 restart） |
 | MCMC | local BFS blocked Gibbs、block size 6 |
 | MCMC長 | burn-in 100、300 retained samples、thinning 1、2 chains |
 | Exact | 最大12未知変数 |

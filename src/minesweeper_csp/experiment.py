@@ -135,6 +135,9 @@ class SweepExperimentConfig:
 
     def to_mapping(self) -> dict[str, Any]:
         return {
+            "inference": {
+                "target_distribution": "uniform_feasible_assignments",
+            },
             "model": {"Lx": self.Lx, "Ly": self.Ly},
             "observation": {
                 "protocol": self.observation_protocol,
@@ -550,13 +553,17 @@ def run_disorder_sample(
     for chain, source in zip(mcmc_summary["chains"], initial_sources):
         chain["initialization"] = source
     summary: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "run_id": f"rho-{rho_index:03d}-sample-{disorder_index:04d}",
         "model": {
             "Lx": config.Lx,
             "Ly": config.Ly,
             "N": config.Lx * config.Ly,
             "rho": rho,
+        },
+        "inference": {
+            "target_distribution": "uniform_feasible_assignments",
+            "rho_used_as_inference_prior": False,
         },
         "observation": {
             "protocol": config.observation_protocol,

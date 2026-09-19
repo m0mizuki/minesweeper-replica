@@ -20,7 +20,7 @@
     "max_iterations": 300,
     "tolerance": 1e-9,
     "damping": 0.2,
-    "initializations": ["prior", "random"]
+    "initializations": ["uniform", "random"]
   },
   "mcmc": {
     "sampler": "local_bfs_blocked_gibbs",
@@ -31,4 +31,3 @@
     "chains": 2
   }
 }
-

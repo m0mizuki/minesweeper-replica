@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from .exact import ExactResult
 from .factor_graph import FactorGraph
 
-BPInitialization = Literal["uniform", "prior", "random"]
+BPInitialization = Literal["uniform", "random"]
 BPStatus = Literal["converged", "max_iterations", "infeasible"]
 FloatMatrix = NDArray[np.float64]
 FloatVector = NDArray[np.float64]
@@ -35,7 +35,7 @@ class BPConfig:
     max_iterations: int = 1_000
     tolerance: float = 1e-10
     damping: float = 0.0
-    initialization: BPInitialization = "prior"
+    initialization: BPInitialization = "uniform"
     seed: int | None = None
 
     def __post_init__(self) -> None:
@@ -57,7 +57,7 @@ class BPConfig:
             raise TypeError("damping must be a real number")
         if not math.isfinite(float(self.damping)) or not 0.0 <= self.damping < 1.0:
             raise ValueError("damping must lie in [0, 1)")
-        if self.initialization not in ("uniform", "prior", "random"):
+        if self.initialization not in ("uniform", "random"):
             raise ValueError(f"unknown BP initialization: {self.initialization!r}")
 
 
@@ -221,13 +221,10 @@ def _damp(new: FloatVector, old: FloatVector, damping: float) -> FloatVector:
 
 def _initialize_variable_messages(
     number_of_edges: int,
-    prior: FloatVector,
     config: BPConfig,
 ) -> FloatMatrix:
     if config.initialization == "uniform":
         return np.full((number_of_edges, 2), 0.5, dtype=np.float64)
-    if config.initialization == "prior":
-        return np.tile(prior, (number_of_edges, 1))
     rng = np.random.default_rng(config.seed)
     messages = rng.random((number_of_edges, 2)) + np.finfo(np.float64).eps
     messages /= messages.sum(axis=1, keepdims=True)
@@ -266,11 +263,10 @@ def _factor_message(
 def _variable_message(
     target_edge: int,
     variable: int,
-    prior: FloatVector,
     layout: _EdgeLayout,
     factor_to_variable: FloatMatrix,
 ) -> FloatVector | None:
-    log_values = _log_probabilities(prior)
+    log_values = np.zeros(2, dtype=np.float64)
     for edge in layout.variable_edges[variable]:
         if edge != target_edge:
             log_values += _log_probabilities(factor_to_variable[edge])
@@ -279,13 +275,12 @@ def _variable_message(
 
 def _compute_marginals(
     graph: FactorGraph,
-    prior: FloatVector,
     layout: _EdgeLayout,
     factor_to_variable: FloatMatrix,
 ) -> FloatVector | None:
     marginals = np.empty(graph.number_of_variables, dtype=np.float64)
     for variable, edges in enumerate(layout.variable_edges):
-        log_values = _log_probabilities(prior)
+        log_values = np.zeros(2, dtype=np.float64)
         for edge in edges:
             log_values += _log_probabilities(factor_to_variable[edge])
         probabilities = _normalize_logs(log_values)
@@ -333,7 +328,10 @@ def run_bp(
     *,
     config: BPConfig | None = None,
 ) -> BPResult:
-    """Run normalized sum-product BP for the Bernoulli-prior posterior."""
+    """Run sum-product BP for the uniform measure on feasible assignments.
+
+    ``rho`` is planted-instance metadata and does not enter the BP updates.
+    """
 
     if isinstance(rho, bool) or not isinstance(rho, (int, float, np.number)):
         raise TypeError("rho must be a real number")
@@ -345,9 +343,8 @@ def run_bp(
         raise TypeError("config must be a BPConfig")
 
     layout = _build_edge_layout(graph)
-    prior = np.array([1.0 - rho, rho], dtype=np.float64)
     variable_to_factor = _initialize_variable_messages(
-        len(layout.edge_factors), prior, config
+        len(layout.edge_factors), config
     )
     factor_to_variable = np.full_like(variable_to_factor, 0.5)
     residual_history: list[float] = []
@@ -370,7 +367,7 @@ def run_bp(
             )
 
     if not layout.edge_factors:
-        marginals = np.full(graph.number_of_variables, rho, dtype=np.float64)
+        marginals = np.full(graph.number_of_variables, 0.5, dtype=np.float64)
         return _make_result(
             graph,
             config,
@@ -417,7 +414,6 @@ def run_bp(
             message = _variable_message(
                 edge,
                 variable,
-                prior,
                 layout,
                 updated_factor_to_variable,
             )
@@ -448,9 +444,7 @@ def run_bp(
         variable_to_factor = updated_variable_to_factor
 
         if delta < config.tolerance:
-            marginals = _compute_marginals(
-                graph, prior, layout, factor_to_variable
-            )
+            marginals = _compute_marginals(graph, layout, factor_to_variable)
             if marginals is None:
                 return _make_result(
                     graph,
@@ -478,7 +472,7 @@ def run_bp(
                 marginals,
             )
 
-    marginals = _compute_marginals(graph, prior, layout, factor_to_variable)
+    marginals = _compute_marginals(graph, layout, factor_to_variable)
     status: BPStatus = "max_iterations" if marginals is not None else "infeasible"
     return _make_result(
         graph,
@@ -513,8 +507,6 @@ def compare_bp_to_exact(bp: BPResult, exact: ExactResult) -> BPMarginalCompariso
 
     if not exact.has_posterior_mass:
         raise ValueError("exact posterior has zero mass")
-    if bp.rho != exact.rho:
-        raise ValueError("BP and exact results use different rho values")
     if bp.marginals.shape != exact.marginals.shape:
         raise ValueError("BP and exact results have different numbers of variables")
     if not np.all(np.isfinite(bp.marginals)):

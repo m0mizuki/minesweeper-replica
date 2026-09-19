@@ -31,7 +31,7 @@ def unconstrained_graph(shape: tuple[int, int]):
 
 
 class MCMCTests(unittest.TestCase):
-    def test_unconstrained_chain_respects_bernoulli_prior(self) -> None:
+    def test_unconstrained_chain_samples_uniform_measure(self) -> None:
         graph = unconstrained_graph((1, 2))
         initial = np.array([False, False], dtype=np.bool_)
         exact = solve_exact(graph, 0.23)
@@ -128,7 +128,15 @@ class MCMCTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             run_blocked_gibbs(graph, 0.3, np.array([False, False]))
         with self.assertRaises(ValueError):
-            run_blocked_gibbs(graph, 0.0, truth)
+            run_blocked_gibbs(graph, 0.3, np.array([True]))
+
+        boundary = run_blocked_gibbs(
+            graph,
+            0.0,
+            truth,
+            config=MCMCConfig(block_size=2, burn_in=0, samples=2, seed=1),
+        )
+        self.assertEqual(boundary.rho, 0.0)
 
     def test_diagnostics_handle_correlation_and_constant_chains(self) -> None:
         alternating = np.tile([0.0, 1.0], 100)

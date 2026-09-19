@@ -60,12 +60,12 @@ class OverlapDistribution:
 
 @dataclass(frozen=True)
 class ExactResult:
-    """Complete exact result for the posterior on one factor graph.
+    """Complete exact result for the uniform measure on feasible assignments.
 
     ``feasible_states`` has one row per constraint-satisfying assignment and
     follows ``graph.variable_cells`` ordering.  Its corresponding normalized
-    posterior masses are in ``posterior_probabilities``.  Feasible states may
-    have zero mass when ``rho`` is exactly zero or one.
+    masses are in ``posterior_probabilities``.  ``rho`` records the planted
+    instance's generation density; it does not weight the inference measure.
     """
 
     rho: float
@@ -172,38 +172,15 @@ def enumerate_feasible_states(
     return result
 
 
-def _normalized_posterior_weights(
-    states: BoolMatrix, rho: float
+def _normalized_uniform_weights(
+    states: BoolMatrix,
 ) -> tuple[FloatVector, float, float]:
-    number_of_states, number_of_variables = states.shape
-    probabilities = np.zeros(number_of_states, dtype=np.float64)
+    number_of_states = states.shape[0]
     if number_of_states == 0:
-        return probabilities, 0.0, -math.inf
-
-    mine_counts = states.sum(axis=1, dtype=np.int_)
-    if rho == 0.0:
-        positive = mine_counts == 0
-        log_weights = np.zeros(int(positive.sum()), dtype=np.float64)
-    elif rho == 1.0:
-        positive = mine_counts == number_of_variables
-        log_weights = np.zeros(int(positive.sum()), dtype=np.float64)
-    else:
-        positive = np.ones(number_of_states, dtype=np.bool_)
-        log_weights = (
-            mine_counts * math.log(rho)
-            + (number_of_variables - mine_counts) * math.log1p(-rho)
-        )
-
-    if not positive.any():
-        return probabilities, 0.0, -math.inf
-
-    maximum = float(log_weights.max())
-    shifted = np.exp(log_weights - maximum)
-    shifted_sum = float(shifted.sum())
-    log_partition = maximum + math.log(shifted_sum)
-    probabilities[positive] = shifted / shifted_sum
-    partition = math.exp(log_partition)
-    return probabilities, partition, log_partition
+        return np.empty(0, dtype=np.float64), 0.0, -math.inf
+    partition = float(number_of_states)
+    probabilities = np.full(number_of_states, 1.0 / partition, dtype=np.float64)
+    return probabilities, partition, math.log(partition)
 
 
 def _overlap_grid(number_of_variables: int) -> FloatVector:
@@ -290,11 +267,11 @@ def solve_exact(
     max_variables: int = 20,
     chunk_size: int = 65_536,
 ) -> ExactResult:
-    """Enumerate and normalize the exact Bernoulli-prior posterior.
+    """Enumerate the exact uniform distribution over feasible assignments.
 
-    If the constraints have no posterior mass, the result still reports the
-    feasible-state count and ``Z=0``.  Marginals are then NaN and overlap
-    distributions are unavailable because no normalized posterior exists.
+    ``rho`` is retained as planted-instance metadata and is not used as an
+    inference prior. If the CSP is unsatisfiable, the result reports ``Z=0``;
+    marginals are NaN and overlap distributions are unavailable.
     """
 
     if isinstance(rho, bool) or not isinstance(rho, (int, float, np.number)):
@@ -306,9 +283,7 @@ def solve_exact(
     states = enumerate_feasible_states(
         graph, max_variables=max_variables, chunk_size=chunk_size
     )
-    probabilities, partition, log_partition = _normalized_posterior_weights(
-        states, rho
-    )
+    probabilities, partition, log_partition = _normalized_uniform_weights(states)
     mine_counts = (
         states.sum(axis=1, dtype=np.int_)
         if states.size

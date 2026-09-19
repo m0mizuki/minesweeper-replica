@@ -33,7 +33,7 @@ def tiny_config() -> SweepExperimentConfig:
                 "max_iterations": 100,
                 "tolerance": 1e-9,
                 "damping": 0.2,
-                "initializations": ["prior", "random"],
+                "initializations": ["uniform", "random"],
             },
             "mcmc": {
                 "block_size": 6,
@@ -81,7 +81,15 @@ class ExperimentTests(unittest.TestCase):
                     self.assertEqual(arrays["ground_truth"].shape, (2, 3))
 
                 raw_json = (run_directory / "run.json").read_text(encoding="utf-8")
-                json.loads(raw_json, parse_constant=lambda value: self.fail(value))
+                record = json.loads(
+                    raw_json, parse_constant=lambda value: self.fail(value)
+                )
+                self.assertEqual(record["schema_version"], 2)
+                self.assertEqual(
+                    record["inference"]["target_distribution"],
+                    "uniform_feasible_assignments",
+                )
+                self.assertFalse(record["inference"]["rho_used_as_inference_prior"])
 
     def test_aggregate_contains_disorder_statistics_and_svg(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

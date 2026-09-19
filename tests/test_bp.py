@@ -27,12 +27,12 @@ def one_of_two_graph():
 
 
 class BeliefPropagationTests(unittest.TestCase):
-    def test_unconstrained_marginals_equal_prior(self) -> None:
+    def test_unconstrained_marginals_are_uniform(self) -> None:
         result = run_bp(unconstrained_graph((2, 2)), 0.23)
 
         self.assertTrue(result.converged)
         self.assertEqual(result.iterations, 0)
-        np.testing.assert_allclose(result.marginals, np.full(4, 0.23))
+        np.testing.assert_allclose(result.marginals, np.full(4, 0.5))
 
     def test_tree_factor_matches_exact_marginals(self) -> None:
         graph, truth = one_of_two_graph()
@@ -109,12 +109,12 @@ class BeliefPropagationTests(unittest.TestCase):
         self.assertTrue(np.isnan(result.marginals).all())
         self.assertIn("exceeds factor degree", result.failure_reason)
 
-    def test_zero_prior_mass_is_not_replaced_by_uniform_message(self) -> None:
+    def test_rho_boundary_does_not_change_bp_target(self) -> None:
         graph, _ = one_of_two_graph()
         result = run_bp(graph, 0.0)
 
-        self.assertEqual(result.status, "infeasible")
-        self.assertTrue(np.isnan(result.marginals).all())
+        self.assertEqual(result.status, "converged")
+        np.testing.assert_allclose(result.marginals, [0.5, 0.5])
 
     def test_multiple_initializations_reach_same_tree_fixed_point(self) -> None:
         graph, _ = one_of_two_graph()
@@ -123,7 +123,6 @@ class BeliefPropagationTests(unittest.TestCase):
             0.3,
             [
                 BPConfig(initialization="uniform"),
-                BPConfig(initialization="prior"),
                 BPConfig(initialization="random", seed=1),
                 BPConfig(initialization="random", seed=2),
             ],
@@ -131,7 +130,7 @@ class BeliefPropagationTests(unittest.TestCase):
 
         self.assertTrue(multiple.all_converged)
         self.assertLess(multiple.max_pairwise_marginal_difference, 1e-9)
-        self.assertEqual(multiple.fixed_point_groups(tolerance=1e-9), ((0, 1, 2, 3),))
+        self.assertEqual(multiple.fixed_point_groups(tolerance=1e-9), ((0, 1, 2),))
 
     def test_invalid_config_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
@@ -140,14 +139,16 @@ class BeliefPropagationTests(unittest.TestCase):
             BPConfig(tolerance=0.0)
         with self.assertRaises(ValueError):
             BPConfig(max_iterations=0)
+        with self.assertRaises(ValueError):
+            BPConfig(initialization="prior")
 
-    def test_comparison_rejects_different_prior(self) -> None:
+    def test_comparison_allows_different_generation_density_metadata(self) -> None:
         graph, truth = one_of_two_graph()
         exact = solve_exact(graph, 0.2, planted_ground_truth=truth)
         bp = run_bp(graph, 0.3)
 
-        with self.assertRaises(ValueError):
-            compare_bp_to_exact(bp, exact)
+        comparison = compare_bp_to_exact(bp, exact)
+        self.assertLess(comparison.max_absolute_error, 1e-12)
 
 
 if __name__ == "__main__":

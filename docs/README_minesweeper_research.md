@@ -81,26 +81,23 @@ $$
 
 を与える。
 
-したがって posterior / Gibbs measure は
+したがって posterior / Gibbs measure は、制約を満たす配置上の一様分布
 
 $$
 P(\mathbf{x}\mid \mathbf{y})
 =
 \frac{1}{Z}
-\left[
 \prod_{a\in A}
 \mathbf{1}
 \left(
 \sum_{i\in\partial a}x_i=y_a
 \right)
-\right]
-\left[
-\prod_{i\in V}
-\rho^{x_i}(1-\rho)^{1-x_i}
-\right].
+.
 $$
 
-ここで $Z$  は規格化定数である。
+ここで $Z$ は feasible solution の総数である。$\rho$ は planted ground truth
+$\mathbf{x}^0$ の生成密度としてのみ使い、推論時の配置重みには使わない。
+すなわち Bernoulli 事前因子 $\prod_iP_0(x_i)$ は target distribution に含めない。
 
 この分布が、BP と MCMC が比較すべき**共通の target distribution** である。
 
@@ -144,17 +141,8 @@ variable-to-factor message:
 $$
 m_{i\to a}(x_i)
 \propto
-P_0(x_i)
 \prod_{b\in\partial i\setminus a}
 m_{b\to i}(x_i)
-$$
-
-where
-
-$$
-P_0(x_i)
-=
-\rho^{x_i}(1-\rho)^{1-x_i}.
 $$
 
 factor-to-variable message:
@@ -176,7 +164,6 @@ $$
 $$
 P_i(x_i)
 \propto
-P_0(x_i)
 \prod_{a\in\partial i}
 m_{a\to i}(x_i).
 $$

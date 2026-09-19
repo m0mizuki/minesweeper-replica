@@ -22,7 +22,7 @@ bp:
   tolerance: 1.0e-10
   # old messageを保持する割合
   damping: 0.2
-  initialization: prior
+  initialization: uniform
   seed: 34567
 
 mcmc:

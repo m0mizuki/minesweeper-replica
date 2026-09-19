@@ -12,7 +12,7 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 - 未観測セルを変数、観測済み安全セルを制約とする factor graph を構築
 - planted configuration の CSP 整合性を検査
 - 小規模CSPのfeasible statesを完全列挙
-- Bernoulli事前分布を含む厳密な分配関数・周辺確率を計算
+- feasible states 上の一様分布について厳密な分配関数・周辺確率を計算
 - planted overlapと独立2レプリカ間の厳密な overlap 分布を計算
 - 正規化・log-domain更新・dampingを備えたBelief Propagation
 - BPの収束状態、iteration数、message residualを記録
@@ -41,6 +41,11 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 - `bernoulli_safe`: 各安全セルを `observation_rate` の確率で独立に観測
 
 いずれも地雷セルは clue として観測しません。
+
+推論の target distribution は、clue 制約をすべて満たす配置上の一様分布です。
+`rho` は planted ground truth の生成密度としてのみ使い、Exact・BP・MCMC の
+配置重みには使いません。したがって、同じ factor graph なら推論結果は `rho` に
+依存せず、制約のない変数の周辺確率は 0.5 です。
 
 ```python
 from minesweeper_csp import (
@@ -100,7 +105,7 @@ replica overlap 分布は全solution pairの二重ループではなく、XOR自
 Walsh–Hadamard変換で厳密に求めます。
 
 BPのmessageは各更新で正規化されます。積によるunderflowを避けるため更新は
-log-domainで行い、hard constraintやpriorによって両状態の質量がゼロになる場合は
+log-domainで行い、hard constraintによって両状態の質量がゼロになる場合は
 一様分布で隠さず`infeasible`として返します。`run_bp_multiple`に複数の
 `BPConfig`を渡すことで、初期値ごとの収束とfixed pointの差を比較できます。
 
@@ -196,8 +201,8 @@ random-graph surrogateや1RSBへ進む条件は
 実際に得られた数値、考察、限界、次の検証項目は
 [`docs/MILESTONE7_RESULTS_DISCUSSION.md`](docs/MILESTONE7_RESULTS_DISCUSSION.md)を参照してください。
 
-同文書の報告値は、次の再現用設定による $\rho=0.10$–$0.50$、各点20 disorder
-sampleの計算結果です。
+同文書の報告値は旧 Bernoulli 事前分布モデルで得たもので、現行の一様測度には
+適用できません。次の設定は現行モデル向けに更新済みですが、数値結果は未再計算です。
 
 ```powershell
 python scripts/run_candidate_study.py `
