@@ -129,7 +129,10 @@ function updateMethodCopy() {
       mathSpan("m_{a\\to i}", "math-inline"),
     );
   } else {
-    elements.nextButtonDetail.append(mathSpan("x_{B_t}\\sim P(x_{B_t}\\mid x_{-B_t},c)", "math-inline"));
+    elements.nextButtonDetail.append(mathSpan(
+      "\\mathbf{x}_{B_t}\\sim P(\\mathbf{x}_{B_t}\\mid\\mathbf{x}_{\\backslash B_t})",
+      "math-inline",
+    ));
   }
   elements.traceIndex.textContent = isBP ? "02 / MESSAGE TRACE" : "02 / SAMPLING TRACE";
   elements.messagesTitle.textContent = isBP ? "メッセージ計算" : "Blocked Gibbs 計算";
@@ -145,9 +148,13 @@ function updateMethodCopy() {
     );
   } else {
     elements.modelNoteCopy.append(
-      "各ブロックは数字制約で連結した未開示マスです。有効な割当に ",
-      mathSpan("\\rho^k(1-\\rho)^{|B|-k}", "math-inline"),
-      " の重みを付け、正規化して1つを採択します。",
+      mathSpan("\\rho", "math-inline"),
+      " は盤面生成のみに使用します。目的分布は ",
+      mathSpan(
+        "P(\\mathbf{x}\\mid\\mathbf{c})=\\frac{1}{Z}\\prod_a\\delta\\!\\left(\\sum_{i\\in\\partial a}x_i,c_a\\right)",
+        "math-inline",
+      ),
+      "、ブロック条件付き確率は制約因子の積だけで決まります。",
     );
   }
 }
@@ -259,7 +266,7 @@ function initialize(board) {
   syncBoardSizeUI();
   graph = createFactorGraph(boardModel);
   bpState = inferenceMethod === "bp" ? createBPState(graph) : null;
-  gibbsState = inferenceMethod === "gibbs" ? createGibbsState(graph, board.rho) : null;
+  gibbsState = inferenceMethod === "gibbs" ? createGibbsState(graph) : null;
   history = [];
   elements.cycleNumber.textContent = "0";
   elements.variableCount.textContent = graph.variables.length;
@@ -509,7 +516,7 @@ function createGibbsStepContent(trace) {
   const enumerationFormula = document.createElement("code");
   renderDetailLatex(
     enumerationFormula,
-    "P(x_B\\mid x_{-B},c)\\propto \\mathbf{1}[c]\\prod_{i\\in B}\\rho^{x_i}(1-\\rho)^{1-x_i}",
+    "P(\\mathbf{x}_B\\mid\\mathbf{x}_{\\backslash B})\\propto\\prod_{a:\\,\\partial a\\cap B\\ne\\emptyset}\\delta\\!\\left(\\sum_{i\\in\\partial a}x_i,c_a\\right)",
   );
   enumerationHeading.append(enumerationLabel, enumerationFormula);
   enumeration.append(enumerationHeading);
@@ -547,12 +554,9 @@ function createGibbsStepContent(trace) {
       checks.textContent = "このブロックに接続する数字制約はありません";
     }
     const weight = document.createElement("p");
-    const safeCount = trace.block.variableIds.length - candidate.mineCount;
     weight.append(
       detailMathSpan(
-        candidate.valid
-          ? `w=\\rho^{${candidate.mineCount}}(1-\\rho)^{${safeCount}}=${formatNumber(candidate.rawWeight)}`
-          : "w=0",
+        `w=\\prod_{a:\\,\\partial a\\cap B\\ne\\emptyset}\\delta_a=${formatNumber(candidate.rawWeight)}`,
       ),
     );
     const probability = document.createElement("p");
@@ -582,7 +586,7 @@ function createGibbsStepContent(trace) {
   drawTitle.textContent = "正規化し、乱数区間から採択";
   drawLabel.append(drawChip, drawTitle);
   const drawFormula = document.createElement("code");
-  renderDetailLatex(drawFormula, `Z=${formatNumber(trace.normalization)},\\quad u=${formatNumber(trace.randomValue)}`);
+  renderDetailLatex(drawFormula, `Z_B=${formatNumber(trace.normalization)},\\quad u=${formatNumber(trace.randomValue)}`);
   drawHeading.append(drawLabel, drawFormula);
   draw.append(drawHeading);
   const selected = trace.candidates[trace.selectedIndex];

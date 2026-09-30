@@ -25,7 +25,7 @@ test("数字制約で連結した変数を1つのブロックにまとめる", (
 
 test("初期状態はすべての数字制約を満たす", () => {
   const graph = createFactorGraph(createExampleBoard());
-  const state = createGibbsState(graph, 1 / 3);
+  const state = createGibbsState(graph);
   assert.equal(state.step, 0);
   assert.equal(state.sampleCount, 0);
   assert.ok(satisfiesAllClues(graph, state.assignment));
@@ -33,7 +33,7 @@ test("初期状態はすべての数字制約を満たす", () => {
 
 test("1ステップで候補を列挙・正規化し乱数区間から選択する", () => {
   const graph = createFactorGraph(createExampleBoard());
-  const initial = createGibbsState(graph, 1 / 3);
+  const initial = createGibbsState(graph);
   const { state, trace } = runGibbsStep(graph, initial, () => 0.8);
   assert.equal(state.step, 1);
   assert.equal(state.sampleCount, 1);
@@ -41,14 +41,19 @@ test("1ステップで候補を列挙・正規化し乱数区間から選択す�
   assert.ok(satisfiesAllClues(graph, state.assignment));
   assert.ok(trace.candidates[trace.selectedIndex].valid);
   assert.notDeepEqual(state.assignment, initial.assignment);
+  trace.candidates.forEach((candidate) => {
+    const deltaProduct = candidate.factorChecks.every(({ satisfied }) => satisfied) ? 1 : 0;
+    assert.equal(candidate.rawWeight, deltaProduct);
+  });
+  assert.equal(trace.normalization, 2);
   const probabilitySum = trace.candidates.reduce((sum, candidate) => sum + candidate.probability, 0);
   assert.ok(Math.abs(probabilitySum - 1) < 1e-12);
   const validProbabilities = trace.candidates
     .filter(({ valid }) => valid)
     .map(({ probability }) => probability)
     .sort((left, right) => left - right);
-  assert.ok(Math.abs(validProbabilities[0] - 1 / 3) < 1e-12);
-  assert.ok(Math.abs(validProbabilities[1] - 2 / 3) < 1e-12);
+  assert.ok(Math.abs(validProbabilities[0] - 1 / 2) < 1e-12);
+  assert.ok(Math.abs(validProbabilities[1] - 1 / 2) < 1e-12);
   const selected = trace.candidates[trace.selectedIndex];
   assert.ok(trace.randomValue >= selected.interval[0]);
   assert.ok(trace.randomValue < selected.interval[1]);
@@ -61,7 +66,7 @@ test("ステップごとに複数ブロックを巡回し経験周辺確率を�
     revealed: new Set(),
     mines: new Set(),
   });
-  let state = createGibbsState(graph, 1 / 3);
+  let state = createGibbsState(graph);
   assert.equal(state.blocks.length, 4);
   const first = runGibbsStep(graph, state, () => 0);
   state = first.state;

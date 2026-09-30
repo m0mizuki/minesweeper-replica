@@ -18,31 +18,14 @@ function isValidAssignment(graph, assignment) {
   return graph.factors.every((factor) => factorValue(factor, assignment) === factor.clue);
 }
 
-function assignmentWeight(variableIds, assignment, rho) {
-  return variableIds.reduce(
-    (weight, variableId) => weight * (assignment[variableId] ? rho : 1 - rho),
-    1,
-  );
-}
-
-function createInitialAssignment(graph, rho) {
-  let bestAssignment = null;
-  let bestWeight = -1;
+function createInitialAssignment(graph) {
   for (const bits of enumerateBits(graph.variables.length)) {
     const assignment = Object.fromEntries(
       graph.variables.map((variable, index) => [variable.id, bits[index]]),
     );
-    if (!isValidAssignment(graph, assignment)) continue;
-    const weight = assignmentWeight(graph.variables.map(({ id }) => id), assignment, rho);
-    if (weight > bestWeight) {
-      bestAssignment = assignment;
-      bestWeight = weight;
-    }
+    if (isValidAssignment(graph, assignment)) return assignment;
   }
-  if (!bestAssignment) {
-    throw new Error("盤面の数字を同時に満たす地雷配置がありません。");
-  }
-  return bestAssignment;
+  throw new Error("盤面の数字を同時に満たす地雷配置がありません。");
 }
 
 export function createGibbsBlocks(graph) {
@@ -87,14 +70,12 @@ function empiricalMarginals(graph, assignment, mineCounts, sampleCount) {
   }));
 }
 
-export function createGibbsState(graph, rho = 0.3) {
-  if (!(rho > 0 && rho < 1)) throw new RangeError("rho は 0 と 1 の間で指定してください。");
+export function createGibbsState(graph) {
   const blocks = createGibbsBlocks(graph);
-  const assignment = createInitialAssignment(graph, rho);
+  const assignment = createInitialAssignment(graph);
   const mineCounts = Object.fromEntries(graph.variables.map(({ id }) => [id, 0]));
   return {
     step: 0,
-    rho,
     blocks,
     assignment,
     sampleCount: 0,
@@ -127,7 +108,7 @@ export function runGibbsStep(graph, state, random = Math.random) {
       factorChecks,
       valid,
       mineCount: bits.reduce((sum, bit) => sum + bit, 0),
-      rawWeight: valid ? assignmentWeight(block.variableIds, assignment, state.rho) : 0,
+      rawWeight: valid ? 1 : 0,
       probability: 0,
       interval: [0, 0],
     };
