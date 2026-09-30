@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  cellKey,
   createExampleBoard,
   createFactorGraph,
   createBPState,
@@ -17,6 +18,25 @@ test("資料例の盤面から4因子・5変数・12辺を構成する", () => {
   assert.equal(graph.factors.length, 4);
   assert.equal(graph.edges.length, 12);
   assert.deepEqual(graph.factors.map((factor) => factor.clue), [1, 1, 2, 2]);
+});
+
+test("2×2盤面から因子グラフを構成してBPを更新できる", () => {
+  const board = {
+    size: 2,
+    rho: 0.25,
+    revealed: new Set([cellKey(0, 0)]),
+    mines: new Set([cellKey(1, 1)]),
+  };
+  const graph = createFactorGraph(board);
+  assert.equal(graph.variables.length, 3);
+  assert.equal(graph.factors.length, 1);
+  assert.equal(graph.edges.length, 3);
+  assert.equal(graph.factors[0].clue, 1);
+
+  const { state, trace } = runCycle(graph, createBPState(graph));
+  assert.equal(state.cycle, 1);
+  assert.equal(trace.variableCalculations.length, 3);
+  assert.equal(trace.factorCalculations.length, 3);
 });
 
 test("1サイクル目の a1→x1 は [2/3, 1/3]", () => {

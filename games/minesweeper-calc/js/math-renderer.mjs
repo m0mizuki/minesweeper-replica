@@ -30,6 +30,14 @@ export function renderLatex(element, latex, options = {}) {
   return element;
 }
 
+export function renderLatexSource(element, latex) {
+  element.dataset.latex = latex;
+  element.setAttribute("aria-label", latex);
+  element.textContent = latex;
+  element.classList.add("latex-source");
+  return element;
+}
+
 export function renderStaticLatex(root = document) {
   root.querySelectorAll("[data-latex]").forEach((element) => {
     renderLatex(element, element.dataset.latex);

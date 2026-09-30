@@ -111,10 +111,11 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 
 .board-stage { display: grid; justify-items: center; }
 .board {
+  --board-size: 3;
   width: min(100%, 330px);
   aspect-ratio: 1;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--board-size), 1fr);
   gap: 8px;
   padding: 8px;
   background: var(--ink);
@@ -167,6 +168,24 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .factor-dot { background: var(--yellow); }
 
 .setup-panel, .run-panel { padding-top: 23px; border-top: 1px solid var(--line); }
+.board-size-control { min-width: 0; margin: 0 0 22px; padding: 0; border: 0; }
+.board-size-control legend { margin-bottom: 9px; font-size: .86rem; font-weight: 800; }
+.size-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+.size-options label { position: relative; cursor: pointer; }
+.size-options input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.size-options span {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: #f4f7fb;
+  border: 1px solid #b8c4d7;
+  font: 800 .9rem "Courier New", monospace;
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+.size-options input:checked + span { color: white; background: var(--ink); border-color: var(--ink); }
+.size-options input:focus-visible + span { outline: 3px solid rgb(20 120 184 / 35%); outline-offset: 3px; }
+.size-options label:hover span { border-color: var(--blue); }
 .rho-control { margin-bottom: 19px; }
 .control-copy { display: flex; justify-content: space-between; align-items: center; margin-bottom: 11px; font-weight: 800; }
 .rho-symbol { font-size: 1.08rem; }
@@ -203,6 +222,16 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .model-note p { margin: 0; }
 
 .inspector-heading { min-height: 48px; }
+.inspector-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 14px; }
+.math-render-toggle { display: flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; user-select: none; }
+.math-render-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.toggle-track { position: relative; width: 36px; height: 20px; flex: 0 0 auto; background: #b8c4d7; border-radius: 99px; transition: background 140ms ease; }
+.toggle-track i { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgb(11 23 54 / 30%); transition: transform 140ms ease; }
+.math-render-toggle input:checked + .toggle-track { background: var(--blue); }
+.math-render-toggle input:checked + .toggle-track i { transform: translateX(16px); }
+.math-render-toggle input:focus-visible + .toggle-track { outline: 3px solid rgb(20 120 184 / 35%); outline-offset: 3px; }
+.toggle-copy { font-size: .76rem; font-weight: 700; white-space: nowrap; }
+.toggle-copy b { min-width: 38px; display: inline-block; color: var(--ink); }
 .text-button { padding: 4px 0; color: var(--blue); background: transparent; border: 0; border-bottom: 1px solid currentColor; font-size: .78rem; font-weight: 800; cursor: pointer; }
 
 .empty-state {
@@ -275,6 +304,7 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .message-name .katex, .message-vector .katex { font-size: 1.05em; }
 .normalization .katex { font-size: 1.04em; }
 .latex-fallback { font-family: "Cambria Math", Georgia, serif; }
+.latex-source { font-family: "Cascadia Mono", Consolas, "Courier New", monospace; font-size: .92em; white-space: normal; overflow-wrap: anywhere; }
 
 [hidden] { display: none !important; }
 
@@ -289,6 +319,8 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
   .app-header { height: 80px; padding-inline: 18px; }
   .app-shell { min-height: calc(100vh - 80px); }
   .workspace, .inspector { padding: 23px 17px; }
+  .inspector-heading { align-items: flex-start; }
+  .inspector-actions { align-items: flex-end; flex-direction: column; gap: 9px; }
   .cycle-badge { min-width: 80px; padding: 8px 10px; }
   .cycle-badge strong { font-size: 1.4rem; }
   .board { gap: 5px; padding: 5px; }
