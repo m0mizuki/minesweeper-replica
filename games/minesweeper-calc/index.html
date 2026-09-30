@@ -120,11 +120,7 @@
           <p id="model-note-copy"><span class="math-inline" data-latex="\rho"></span> は盤面生成のみに使用します。BP の初期メッセージはすべて <span class="math-inline" data-latex="[0.5,\,0.5]"></span> です。</p>
           <div class="block-size-note" id="block-size-note" hidden>
             <strong>ブロックサイズについて</strong>
-            <ul>
-              <li>ブロックサイズが小さいと別解への遷移が確保できない</li>
-              <li>ブロックサイズが大きいと計算量が大きくなる</li>
-              <li>変数全てを1ブロックとすると目的分布からの直接サンプリングとなり、遷移の意味はあまりない</li>
-            </ul>
+            <p>ブロックサイズが小さいと、現在の解から大きく異なる別解への遷移が起こりにくくなります。一方で、ブロックサイズを大きくすると列挙する候補数が指数的に増え、計算量が大きくなります。また、全変数を1つのブロックにすると目的分布から直接サンプリングする形になり、状態間を遷移する Gibbs sampling としての意味は薄くなります。</p>
           </div>
         </aside>
       </section>
