@@ -8,6 +8,7 @@ import {
 } from "./bp-engine.mjs";
 import {
   idToLatex,
+  joinProductLatex,
   messageToLatex,
   renderLatex,
   renderStaticLatex,
@@ -157,7 +158,7 @@ function renderVariableCalculation(calculation) {
   calculation.rows.forEach((row) => {
     const line = document.createElement("p");
     const expression = row.terms.length
-      ? row.terms.map((term) => `${messageToLatex(term.from, term.to, term.argument)}=${formatNumber(term.value)}`).join("\\times")
+      ? joinProductLatex(row.terms.map((term) => `${messageToLatex(term.from, term.to, term.argument)}=${formatNumber(term.value)}`))
       : "1\\;\\text{（空積）}";
     line.append(
       mathSpan(messageToLatex(calculation.from, calculation.to, row.value), "formula-key"),
@@ -205,7 +206,7 @@ function renderFactorCalculation(calculation) {
           ? `\\left(${calculation.otherVariableIds.map((id) => `${idToLatex(id)}=${assignment.values[id]}`).join(",\\;")}\\right)`
           : "\\text{（他変数なし）}";
         const productExpression = assignment.terms.length
-          ? assignment.terms.map((term) => formatNumber(term.probability)).join("\\times")
+          ? joinProductLatex(assignment.terms.map((term) => formatNumber(term.probability)))
           : "1";
         assignmentLine.append(
           mathSpan(values),

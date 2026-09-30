@@ -48,3 +48,7 @@ export function messageToLatex(from, to, argument = null) {
 export function vectorToLatex(vector, formatter) {
   return `\\left[${formatter(vector[0])},\\;${formatter(vector[1])}\\right]`;
 }
+
+export function joinProductLatex(terms) {
+  return terms.join("\\,\\times\\,");
+}

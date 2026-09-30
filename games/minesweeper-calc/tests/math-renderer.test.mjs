@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   idToLatex,
+  joinProductLatex,
   messageToLatex,
   vectorToLatex,
 } from "../js/math-renderer.mjs";
@@ -21,4 +22,16 @@ test("確率ベクトルをLaTeX形式へ変換する", () => {
     vectorToLatex([2 / 3, 1 / 3], (value) => value.toFixed(3)),
     "\\left[0.667,\\;0.333\\right]",
   );
+});
+
+test("積記号と次の数式をLaTeXコマンドとして分離する", () => {
+  const product = joinProductLatex([
+    "m_{a_{2}\\to x_{3}}(0)=0.5",
+    "m_{a_{3}\\to x_{3}}(0)=0.5",
+  ]);
+  assert.equal(
+    product,
+    "m_{a_{2}\\to x_{3}}(0)=0.5\\,\\times\\,m_{a_{3}\\to x_{3}}(0)=0.5",
+  );
+  assert.doesNotMatch(product, /\\\\timesm/);
 });
