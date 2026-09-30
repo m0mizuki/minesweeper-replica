@@ -772,7 +772,6 @@ function advance() {
   );
   updateExpandButtonLabel();
   renderBoard();
-  elements.trace.querySelector("summary")?.focus();
 }
 
 function beginWithCurrentSetup() {
