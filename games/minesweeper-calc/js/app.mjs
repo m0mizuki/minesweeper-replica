@@ -45,6 +45,7 @@ let boardModel = null;
 let graph = null;
 let bpState = null;
 let history = [];
+const traceByElement = new WeakMap();
 
 const formatNumber = (value) => {
   if (value === 0 || value === 1) return String(value);
@@ -265,14 +266,7 @@ function createPhase(title, formula, calculations, kind) {
   return section;
 }
 
-function renderTrace(trace) {
-  const details = document.createElement("details");
-  details.className = "cycle-trace";
-  details.open = true;
-  const summary = document.createElement("summary");
-  summary.innerHTML = `<span>Cycle ${trace.cycle}</span><span>${trace.variableCalculations.length + trace.factorCalculations.length} messages${trace.hasContradiction ? " · 矛盾あり" : ""}</span>`;
-  details.append(summary);
-
+function createCycleContent(trace) {
   const content = document.createElement("div");
   content.className = "cycle-content";
   content.append(createPhase(
@@ -307,7 +301,48 @@ function renderTrace(trace) {
   });
   marginal.append(values);
   content.append(marginal);
-  details.append(content);
+  return content;
+}
+
+function mountCycleContent(details) {
+  if (details.querySelector(":scope > .cycle-content")) return;
+  const trace = traceByElement.get(details);
+  if (trace) details.append(createCycleContent(trace));
+}
+
+function unmountCycleContent(details) {
+  details.querySelector(":scope > .cycle-content")?.remove();
+}
+
+function updateExpandButtonLabel() {
+  const details = [...elements.trace.querySelectorAll("details")];
+  if (!details.length) return;
+  elements.expandButton.textContent = details.every((item) => item.open)
+    ? "すべて折りたたむ"
+    : "すべて展開";
+}
+
+function setCycleExpanded(details, expanded) {
+  details.open = expanded;
+  if (expanded) mountCycleContent(details);
+  else unmountCycleContent(details);
+}
+
+function renderTrace(trace) {
+  const details = document.createElement("details");
+  details.className = "cycle-trace";
+  traceByElement.set(details, trace);
+
+  const summary = document.createElement("summary");
+  summary.innerHTML = `<span>Cycle ${trace.cycle}</span><span>${trace.variableCalculations.length + trace.factorCalculations.length} messages${trace.hasContradiction ? " · 矛盾あり" : ""}</span>`;
+  details.append(summary);
+
+  details.addEventListener("toggle", () => {
+    if (details.open) mountCycleContent(details);
+    else unmountCycleContent(details);
+    updateExpandButtonLabel();
+  });
+  setCycleExpanded(details, true);
   return details;
 }
 
@@ -319,8 +354,9 @@ function advanceCycle() {
   elements.emptyState.hidden = true;
   elements.expandButton.hidden = false;
 
-  elements.trace.querySelectorAll("details").forEach((item) => { item.open = false; });
+  elements.trace.querySelectorAll("details").forEach((item) => setCycleExpanded(item, false));
   elements.trace.prepend(renderTrace(result.trace));
+  updateExpandButtonLabel();
   renderBoard();
   elements.trace.querySelector("summary")?.focus();
 }
@@ -363,8 +399,8 @@ elements.editButton.addEventListener("click", () => {
 elements.expandButton.addEventListener("click", () => {
   const details = [...elements.trace.querySelectorAll("details")];
   const shouldOpen = details.some((item) => !item.open);
-  details.forEach((item) => { item.open = shouldOpen; });
-  elements.expandButton.textContent = shouldOpen ? "すべて折りたたむ" : "すべて展開";
+  details.forEach((item) => setCycleExpanded(item, shouldOpen));
+  updateExpandButtonLabel();
 });
 
 renderStaticLatex();
