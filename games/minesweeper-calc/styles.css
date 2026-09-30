@@ -152,6 +152,19 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .factor-cell { color: #703205; background: var(--orange-soft); }
 .factor-cell::after { content: ""; position: absolute; inset: 7px; border: 2px solid var(--yellow); }
 .variable-cell { color: #075882; background: var(--blue-soft); }
+.variable-cell.is-current-mine { color: white; background: #126f9f; }
+.variable-cell.is-current-mine::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  right: 7px;
+  top: 7px;
+  background: var(--yellow);
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgb(11 23 54 / 28%);
+}
 .variable-cell::after {
   content: "";
   position: absolute;
@@ -169,8 +182,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 
 .setup-panel, .run-panel { padding-top: 23px; border-top: 1px solid var(--line); }
 .board-size-control { min-width: 0; margin: 0 0 22px; padding: 0; border: 0; }
+.method-control { margin-bottom: 18px; }
 .board-size-control legend { margin-bottom: 9px; font-size: .86rem; font-weight: 800; }
 .size-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+.method-options span { min-height: 48px; padding: 7px; font-family: inherit; font-size: .78rem; text-align: center; }
 .size-options label { position: relative; cursor: pointer; }
 .size-options input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .size-options span {
@@ -216,6 +231,7 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .run-summary { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 15px; }
 .run-summary span { padding: 7px 9px; color: var(--muted); background: #eef2f8; font-family: "Courier New", monospace; font-size: .71rem; }
 .run-summary b { color: var(--ink); }
+.run-summary i { font-style: normal; }
 
 .model-note { margin-top: 24px; padding: 14px 15px; color: var(--muted); background: #f7f9fc; border-left: 4px solid var(--line); font-size: .76rem; line-height: 1.6; }
 .model-note strong { display: block; margin-bottom: 2px; color: var(--ink); }
@@ -296,6 +312,36 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .marginal-values > span { padding: 6px 8px; color: #dbe9ff; background: rgb(255 255 255 / 9%); font: .72rem "Courier New", monospace; }
 .marginal-values b { color: white; }
 
+.gibbs-trace { border-top: 4px solid var(--cyan); }
+.gibbs-context { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.gibbs-context p {
+  min-width: 0;
+  margin: 0;
+  padding: 11px 12px;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  background: #f7f9fc;
+  border-left: 3px solid var(--cyan);
+  font: .78rem/1.65 "Courier New", monospace;
+}
+.gibbs-enumeration .phase-chip { color: var(--ink); background: var(--yellow); }
+.candidate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 10px; }
+.candidate-card { min-width: 0; background: white; border: 1px solid var(--line); border-top: 3px solid var(--cyan); }
+.candidate-card.is-invalid { opacity: .7; border-top-color: #aab7cc; }
+.candidate-card.is-selected { border-color: var(--blue); border-top-color: var(--blue); box-shadow: 0 0 0 2px rgb(20 120 184 / 12%); }
+.candidate-card > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; background: #f7f9fc; border-bottom: 1px solid var(--line); }
+.candidate-card > header code { min-width: 0; color: var(--ink); font-size: .78rem; font-weight: 800; overflow-wrap: anywhere; }
+.candidate-status { padding: 3px 5px; color: #075882; background: var(--blue-soft); font: 800 .62rem "Courier New", monospace; white-space: nowrap; }
+.candidate-card.is-invalid .candidate-status { color: var(--muted); background: #e9edf4; }
+.candidate-card.is-selected .candidate-status { color: white; background: var(--blue); }
+.candidate-body { padding: 8px 10px; }
+.candidate-body p { margin: 5px 0; color: var(--muted); font: .73rem/1.55 "Courier New", monospace; overflow-wrap: anywhere; }
+.candidate-body .factor-checks { min-height: 2.4em; color: var(--ink); }
+.candidate-probability { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.gibbs-draw .phase-chip { background: var(--blue); }
+.gibbs-decision { padding: 14px 15px; color: #075882; background: var(--blue-soft); border: 1px solid #b9dced; font: 800 .82rem/1.7 "Courier New", monospace; }
+.gibbs-result .phase-chip { background: var(--yellow); }
+
 .math-inline { display: inline-block; font-style: normal; }
 .katex { font-size: 1em; }
 .board-cell strong .katex { font-size: 1.08em; }
@@ -327,6 +373,7 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
   .button-row .button { flex: 1 1 145px; }
   .phase-heading { align-items: flex-start; flex-direction: column; }
   .phase-heading code { max-width: 100%; text-align: left; }
+  .gibbs-context { grid-template-columns: 1fr; }
   .cycle-content { padding-inline: 12px; }
   .calculation-lines p { grid-template-columns: 1fr auto; }
   .calculation-lines p > span:nth-child(2) { grid-column: 1 / -1; }

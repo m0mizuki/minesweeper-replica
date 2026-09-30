@@ -7,6 +7,10 @@ import {
   runCycle,
 } from "./bp-engine.mjs";
 import {
+  createGibbsState,
+  runGibbsStep,
+} from "./gibbs-engine.mjs";
+import {
   idToLatex,
   joinProductLatex,
   messageToLatex,
@@ -23,6 +27,7 @@ await waitForMathRenderer();
 const elements = {
   board: document.querySelector("#board"),
   boardTitle: document.querySelector("#board-title"),
+  methodInputs: [...document.querySelectorAll('input[name="inference-method"]')],
   sizeInputs: [...document.querySelectorAll('input[name="board-size"]')],
   rho: document.querySelector("#rho"),
   rhoOutput: document.querySelector("#rho-output"),
@@ -31,12 +36,21 @@ const elements = {
   startButton: document.querySelector("#start-button"),
   exampleButton: document.querySelector("#example-button"),
   nextButton: document.querySelector("#next-cycle-button"),
+  nextButtonLabel: document.querySelector("#next-button-label"),
+  nextButtonDetail: document.querySelector("#next-button-detail"),
   editButton: document.querySelector("#edit-button"),
   cycleNumber: document.querySelector("#cycle-number"),
+  counterLabel: document.querySelector("#counter-label"),
+  methodEyebrow: document.querySelector("#method-eyebrow"),
   modeStatus: document.querySelector("#mode-status"),
   variableCount: document.querySelector("#variable-count"),
   factorCount: document.querySelector("#factor-count"),
   edgeCount: document.querySelector("#edge-count"),
+  thirdMetricLabel: document.querySelector("#third-metric-label"),
+  modelNoteTitle: document.querySelector("#model-note-title"),
+  modelNoteCopy: document.querySelector("#model-note-copy"),
+  traceIndex: document.querySelector("#trace-index"),
+  messagesTitle: document.querySelector("#messages-title"),
   emptyState: document.querySelector("#empty-state"),
   trace: document.querySelector("#trace"),
   expandButton: document.querySelector("#expand-button"),
@@ -46,6 +60,7 @@ const elements = {
 };
 
 let mode = "setup";
+let inferenceMethod = "bp";
 let boardSize = 3;
 const revealedBySize = new Map([
   [2, new Set([cellKey(0, 0)])],
@@ -55,6 +70,7 @@ let selectedRevealed = revealedBySize.get(boardSize);
 let boardModel = null;
 let graph = null;
 let bpState = null;
+let gibbsState = null;
 let history = [];
 let useKatexForDetails = true;
 const traceByElement = new WeakMap();
@@ -90,7 +106,49 @@ function setEmptyState(title, message, latex = null) {
   const paragraph = elements.emptyState.querySelector("p");
   paragraph.replaceChildren(document.createTextNode(message));
   if (latex) {
-    paragraph.append(" ", mathSpan(latex, "math-inline"), " です。『1サイクル進める』で更新式を展開します。");
+    const action = inferenceMethod === "bp" ? "1サイクル進める" : "1ステップ進める";
+    paragraph.append(" ", mathSpan(latex, "math-inline"), ` です。『${action}』で計算を展開します。`);
+  }
+}
+
+function updateMethodCopy() {
+  const isBP = inferenceMethod === "bp";
+  elements.methodInputs.forEach((input) => {
+    input.checked = input.value === inferenceMethod;
+  });
+  elements.methodEyebrow.textContent = isBP
+    ? "SUM–PRODUCT / FACTOR GRAPH"
+    : "MCMC / BLOCKED CONDITIONAL";
+  elements.counterLabel.textContent = isBP ? "cycle" : "step";
+  elements.nextButtonLabel.textContent = isBP ? "1サイクル進める" : "1ステップ進める";
+  elements.nextButtonDetail.replaceChildren();
+  if (isBP) {
+    elements.nextButtonDetail.append(
+      mathSpan("m_{i\\to a}", "math-inline"),
+      " → ",
+      mathSpan("m_{a\\to i}", "math-inline"),
+    );
+  } else {
+    elements.nextButtonDetail.append(mathSpan("x_{B_t}\\sim P(x_{B_t}\\mid x_{-B_t},c)", "math-inline"));
+  }
+  elements.traceIndex.textContent = isBP ? "02 / MESSAGE TRACE" : "02 / SAMPLING TRACE";
+  elements.messagesTitle.textContent = isBP ? "メッセージ計算" : "Blocked Gibbs 計算";
+  elements.thirdMetricLabel.textContent = isBP ? "edges" : "blocks";
+  elements.modelNoteTitle.textContent = isBP ? "地雷密度の扱い" : "条件付き分布の扱い";
+  elements.modelNoteCopy.replaceChildren();
+  if (isBP) {
+    elements.modelNoteCopy.append(
+      mathSpan("\\rho", "math-inline"),
+      " は盤面生成のみに使用します。BP の初期メッセージはすべて ",
+      mathSpan("[0.5,\\,0.5]", "math-inline"),
+      " です。",
+    );
+  } else {
+    elements.modelNoteCopy.append(
+      "各ブロックは数字制約で連結した未開示マスです。有効な割当に ",
+      mathSpan("\\rho^k(1-\\rho)^{|B|-k}", "math-inline"),
+      " の重みを付け、正規化して1つを採択します。",
+    );
   }
 }
 
@@ -99,7 +157,9 @@ function setMode(nextMode) {
   const isSetup = mode === "setup";
   elements.setupPanel.hidden = !isSetup;
   elements.runPanel.hidden = isSetup;
-  elements.modeStatus.textContent = isSetup ? "設定中" : "計算中";
+  elements.modeStatus.textContent = isSetup
+    ? "設定中"
+    : inferenceMethod === "bp" ? "BP 計算中" : "Gibbs 計算中";
   elements.modeStatus.classList.toggle("is-running", !isSetup);
   renderBoard();
 }
@@ -159,15 +219,31 @@ function renderBoard() {
           cell.append(clue, mathSpan(idToLatex(modelCell.id)));
           cell.setAttribute("aria-label", `開示マス ${modelCell.id}、数字 ${modelCell.clue}`);
         } else {
-          const marginal = bpState.marginals[modelCell.id] ?? [0.5, 0.5];
+          const activeState = inferenceMethod === "bp" ? bpState : gibbsState;
+          const marginal = activeState.marginals[modelCell.id] ?? [0.5, 0.5];
           const mineProbability = marginal[1];
           cell.classList.add("variable-cell");
+          const currentValue = inferenceMethod === "gibbs"
+            ? gibbsState.assignment[modelCell.id]
+            : null;
+          if (currentValue === 1) cell.classList.add("is-current-mine");
           cell.style.setProperty("--probability", `${mineProbability * 100}%`);
           const label = document.createElement("strong");
           renderLatex(label, idToLatex(modelCell.id));
-          const probability = mathSpan(`P(${idToLatex(modelCell.id)}=1)=${formatNumber(mineProbability)}`);
+          const probability = inferenceMethod === "bp"
+            ? mathSpan(`P(${idToLatex(modelCell.id)}=1)=${formatNumber(mineProbability)}`)
+            : mathSpan(
+              gibbsState.sampleCount > 0
+                ? `${idToLatex(modelCell.id)}=${currentValue},\\;\\hat P(1)=${formatNumber(mineProbability)}`
+                : `${idToLatex(modelCell.id)}=${currentValue}\\;\\text{（初期値）}`,
+            );
           cell.append(label, probability);
-          cell.setAttribute("aria-label", `未開示マス ${modelCell.id}、地雷確率 ${formatNumber(mineProbability)}`);
+          cell.setAttribute(
+            "aria-label",
+            inferenceMethod === "bp"
+              ? `未開示マス ${modelCell.id}、地雷確率 ${formatNumber(mineProbability)}`
+              : `未開示マス ${modelCell.id}、現在値 ${currentValue}、経験地雷確率 ${formatNumber(mineProbability)}`,
+          );
         }
       }
       elements.board.append(cell);
@@ -182,20 +258,36 @@ function initialize(board) {
   revealedBySize.set(boardSize, selectedRevealed);
   syncBoardSizeUI();
   graph = createFactorGraph(boardModel);
-  bpState = createBPState(graph);
+  bpState = inferenceMethod === "bp" ? createBPState(graph) : null;
+  gibbsState = inferenceMethod === "gibbs" ? createGibbsState(graph, board.rho) : null;
   history = [];
   elements.cycleNumber.textContent = "0";
   elements.variableCount.textContent = graph.variables.length;
   elements.factorCount.textContent = graph.factors.length;
-  elements.edgeCount.textContent = graph.edges.length;
+  elements.edgeCount.textContent = inferenceMethod === "bp"
+    ? graph.edges.length
+    : gibbsState.blocks.length;
   elements.trace.replaceChildren();
   elements.emptyState.hidden = false;
-  if (graph.edges.length) {
+  if (inferenceMethod === "bp" && graph.edges.length) {
     setEmptyState("初期メッセージを設定しました", "すべての有向メッセージは", "[0.5,\\,0.5]");
+  } else if (inferenceMethod === "gibbs" && gibbsState.blocks.length) {
+    setEmptyState(
+      "制約を満たす初期配置を作りました",
+      `${gibbsState.blocks.length} 個のブロックを順番に更新します。最初の更新対象は`,
+      gibbsState.blocks[0].id,
+    );
   } else {
-    setEmptyState("更新できるメッセージがありません", "開示マスと隣接する未開示マスがないため、因子グラフに辺がありません。");
+    setEmptyState(
+      "更新できる対象がありません",
+      inferenceMethod === "bp"
+        ? "開示マスと隣接する未開示マスがないため、因子グラフに辺がありません。"
+        : "未開示変数がないため、更新するブロックがありません。",
+    );
   }
-  elements.nextButton.disabled = graph.edges.length === 0;
+  elements.nextButton.disabled = inferenceMethod === "bp"
+    ? graph.edges.length === 0
+    : gibbsState.blocks.length === 0;
   elements.expandButton.hidden = true;
   setMode("running");
 }
@@ -356,20 +448,199 @@ function createCycleContent(trace) {
   return content;
 }
 
-function mountCycleContent(details) {
-  if (details.querySelector(":scope > .cycle-content")) return;
-  const trace = traceByElement.get(details);
-  if (trace) details.append(createCycleContent(trace));
+function assignmentLatex(variableIds, values) {
+  return variableIds.map((id) => `${idToLatex(id)}=${values[id]}`).join(",\\;");
 }
 
-function unmountCycleContent(details) {
+function createGibbsStepContent(trace) {
+  const content = document.createElement("div");
+  content.className = "cycle-content gibbs-content";
+
+  const conditioning = document.createElement("section");
+  conditioning.className = "phase gibbs-conditioning";
+  const conditioningHeading = document.createElement("div");
+  conditioningHeading.className = "phase-heading";
+  const conditioningLabel = document.createElement("div");
+  const conditioningChip = document.createElement("span");
+  conditioningChip.className = "phase-chip";
+  conditioningChip.textContent = "STEP 1";
+  const conditioningTitle = document.createElement("h4");
+  conditioningTitle.textContent = `${trace.block.id} を更新対象にする`;
+  conditioningLabel.append(conditioningChip, conditioningTitle);
+  const conditioningFormula = document.createElement("code");
+  renderDetailLatex(
+    conditioningFormula,
+    `${idToLatex(trace.block.id)}=\\{${trace.block.variableIds.map(idToLatex).join(",\\;")}\\}`,
+  );
+  conditioningHeading.append(conditioningLabel, conditioningFormula);
+  conditioning.append(conditioningHeading);
+
+  const context = document.createElement("div");
+  context.className = "gibbs-context";
+  const before = document.createElement("p");
+  before.append(
+    document.createTextNode("更新前の標本 "),
+    detailMathSpan(assignmentLatex(graph.variables.map(({ id }) => id), trace.beforeAssignment)),
+  );
+  const factors = document.createElement("p");
+  factors.append(
+    document.createTextNode("再評価する制約 "),
+    detailMathSpan(
+      trace.affectedFactorIds.length
+        ? trace.affectedFactorIds.map(idToLatex).join(",\\;")
+        : "\\text{なし}",
+    ),
+  );
+  context.append(before, factors);
+  conditioning.append(context);
+  content.append(conditioning);
+
+  const enumeration = document.createElement("section");
+  enumeration.className = "phase gibbs-enumeration";
+  const enumerationHeading = document.createElement("div");
+  enumerationHeading.className = "phase-heading";
+  const enumerationLabel = document.createElement("div");
+  const enumerationChip = document.createElement("span");
+  enumerationChip.className = "phase-chip";
+  enumerationChip.textContent = "STEP 2";
+  const enumerationTitle = document.createElement("h4");
+  enumerationTitle.textContent = `${trace.candidates.length} 通りを列挙して重みを計算`;
+  enumerationLabel.append(enumerationChip, enumerationTitle);
+  const enumerationFormula = document.createElement("code");
+  renderDetailLatex(
+    enumerationFormula,
+    "P(x_B\\mid x_{-B},c)\\propto \\mathbf{1}[c]\\prod_{i\\in B}\\rho^{x_i}(1-\\rho)^{1-x_i}",
+  );
+  enumerationHeading.append(enumerationLabel, enumerationFormula);
+  enumeration.append(enumerationHeading);
+
+  const candidateGrid = document.createElement("div");
+  candidateGrid.className = "candidate-grid";
+  trace.candidates.forEach((candidate, index) => {
+    const card = document.createElement("article");
+    card.className = "candidate-card";
+    if (!candidate.valid) card.classList.add("is-invalid");
+    if (index === trace.selectedIndex) card.classList.add("is-selected");
+
+    const header = document.createElement("header");
+    const assignment = document.createElement("code");
+    renderDetailLatex(assignment, assignmentLatex(trace.block.variableIds, candidate.values));
+    const status = document.createElement("span");
+    status.className = "candidate-status";
+    status.textContent = index === trace.selectedIndex
+      ? "採択"
+      : candidate.valid ? "有効" : "制約違反";
+    header.append(assignment, status);
+
+    const body = document.createElement("div");
+    body.className = "candidate-body";
+    const checks = document.createElement("p");
+    checks.className = "factor-checks";
+    if (candidate.factorChecks.length) {
+      candidate.factorChecks.forEach((check, checkIndex) => {
+        if (checkIndex) checks.append(" · ");
+        checks.append(
+          detailMathSpan(`${idToLatex(check.factorId)}:\\;${check.sum}${check.satisfied ? "=" : "\\ne"}${check.clue}`),
+        );
+      });
+    } else {
+      checks.textContent = "このブロックに接続する数字制約はありません";
+    }
+    const weight = document.createElement("p");
+    const safeCount = trace.block.variableIds.length - candidate.mineCount;
+    weight.append(
+      detailMathSpan(
+        candidate.valid
+          ? `w=\\rho^{${candidate.mineCount}}(1-\\rho)^{${safeCount}}=${formatNumber(candidate.rawWeight)}`
+          : "w=0",
+      ),
+    );
+    const probability = document.createElement("p");
+    probability.className = "candidate-probability";
+    probability.append(
+      detailMathSpan(`P=${formatNumber(candidate.probability)}`),
+      detailMathSpan(
+        `I=[${formatNumber(candidate.interval[0])},\\;${formatNumber(candidate.interval[1])})`,
+      ),
+    );
+    body.append(checks, weight, probability);
+    card.append(header, body);
+    candidateGrid.append(card);
+  });
+  enumeration.append(candidateGrid);
+  content.append(enumeration);
+
+  const draw = document.createElement("section");
+  draw.className = "phase gibbs-draw";
+  const drawHeading = document.createElement("div");
+  drawHeading.className = "phase-heading";
+  const drawLabel = document.createElement("div");
+  const drawChip = document.createElement("span");
+  drawChip.className = "phase-chip";
+  drawChip.textContent = "STEP 3";
+  const drawTitle = document.createElement("h4");
+  drawTitle.textContent = "正規化し、乱数区間から採択";
+  drawLabel.append(drawChip, drawTitle);
+  const drawFormula = document.createElement("code");
+  renderDetailLatex(drawFormula, `Z=${formatNumber(trace.normalization)},\\quad u=${formatNumber(trace.randomValue)}`);
+  drawHeading.append(drawLabel, drawFormula);
+  draw.append(drawHeading);
+  const selected = trace.candidates[trace.selectedIndex];
+  const decision = document.createElement("div");
+  decision.className = "gibbs-decision";
+  decision.append(
+    detailMathSpan(
+      `${formatNumber(selected.interval[0])}\\le u<${formatNumber(selected.interval[1])}`,
+    ),
+    document.createTextNode(" より "),
+    detailMathSpan(assignmentLatex(trace.block.variableIds, selected.values)),
+    document.createTextNode(" を採択"),
+  );
+  draw.append(decision);
+  content.append(draw);
+
+  const result = document.createElement("section");
+  result.className = "marginal-strip gibbs-result";
+  const resultHeading = document.createElement("div");
+  const resultChip = document.createElement("span");
+  resultChip.className = "phase-chip";
+  resultChip.textContent = "RESULT";
+  const resultTitle = document.createElement("h4");
+  resultTitle.textContent = `Step ${trace.step} 後の標本と経験確率（n=${trace.sampleCount}）`;
+  resultHeading.append(resultChip, resultTitle);
+  result.append(resultHeading);
+  const values = document.createElement("div");
+  values.className = "marginal-values";
+  graph.variables.forEach((variable) => {
+    const item = document.createElement("span");
+    renderDetailLatex(
+      item,
+      `${idToLatex(variable.id)}=${trace.afterAssignment[variable.id]},\\;\\hat P(1)=${formatNumber(trace.marginals[variable.id][1])}`,
+    );
+    values.append(item);
+  });
+  result.append(values);
+  content.append(result);
+  return content;
+}
+
+function mountTraceContent(details) {
+  if (details.querySelector(":scope > .cycle-content")) return;
+  const entry = traceByElement.get(details);
+  if (!entry) return;
+  details.append(entry.method === "bp"
+    ? createCycleContent(entry.trace)
+    : createGibbsStepContent(entry.trace));
+}
+
+function unmountTraceContent(details) {
   details.querySelector(":scope > .cycle-content")?.remove();
 }
 
 function rerenderExpandedCycles() {
   elements.trace.querySelectorAll("details[open]").forEach((details) => {
-    unmountCycleContent(details);
-    mountCycleContent(details);
+    unmountTraceContent(details);
+    mountTraceContent(details);
   });
 }
 
@@ -383,38 +654,62 @@ function updateExpandButtonLabel() {
 
 function setCycleExpanded(details, expanded) {
   details.open = expanded;
-  if (expanded) mountCycleContent(details);
-  else unmountCycleContent(details);
+  if (expanded) mountTraceContent(details);
+  else unmountTraceContent(details);
 }
 
-function renderTrace(trace) {
+function renderBPTrace(trace) {
   const details = document.createElement("details");
   details.className = "cycle-trace";
-  traceByElement.set(details, trace);
+  traceByElement.set(details, { method: "bp", trace });
 
   const summary = document.createElement("summary");
   summary.innerHTML = `<span>Cycle ${trace.cycle}</span><span>${trace.variableCalculations.length + trace.factorCalculations.length} messages${trace.hasContradiction ? " · 矛盾あり" : ""}</span>`;
   details.append(summary);
 
   details.addEventListener("toggle", () => {
-    if (details.open) mountCycleContent(details);
-    else unmountCycleContent(details);
+    if (details.open) mountTraceContent(details);
+    else unmountTraceContent(details);
     updateExpandButtonLabel();
   });
   setCycleExpanded(details, true);
   return details;
 }
 
-function advanceCycle() {
-  const result = runCycle(graph, bpState);
-  bpState = result.state;
+function renderGibbsTrace(trace) {
+  const details = document.createElement("details");
+  details.className = "cycle-trace gibbs-trace";
+  traceByElement.set(details, { method: "gibbs", trace });
+  const validCount = trace.candidates.filter(({ valid }) => valid).length;
+  const summary = document.createElement("summary");
+  summary.innerHTML = `<span>Step ${trace.step} · ${trace.block.id}</span><span>${validCount} / ${trace.candidates.length} valid · u=${formatNumber(trace.randomValue)}</span>`;
+  details.append(summary);
+  details.addEventListener("toggle", () => {
+    if (details.open) mountTraceContent(details);
+    else unmountTraceContent(details);
+    updateExpandButtonLabel();
+  });
+  setCycleExpanded(details, true);
+  return details;
+}
+
+function advance() {
+  const result = inferenceMethod === "bp"
+    ? runCycle(graph, bpState)
+    : runGibbsStep(graph, gibbsState);
+  if (inferenceMethod === "bp") bpState = result.state;
+  else gibbsState = result.state;
   history.push(result.trace);
-  elements.cycleNumber.textContent = String(bpState.cycle);
+  elements.cycleNumber.textContent = String(
+    inferenceMethod === "bp" ? bpState.cycle : gibbsState.step,
+  );
   elements.emptyState.hidden = true;
   elements.expandButton.hidden = false;
 
   elements.trace.querySelectorAll("details").forEach((item) => setCycleExpanded(item, false));
-  elements.trace.prepend(renderTrace(result.trace));
+  elements.trace.prepend(
+    inferenceMethod === "bp" ? renderBPTrace(result.trace) : renderGibbsTrace(result.trace),
+  );
   updateExpandButtonLabel();
   renderBoard();
   elements.trace.querySelector("summary")?.focus();
@@ -434,6 +729,15 @@ function beginWithCurrentSetup() {
   }));
 }
 
+elements.methodInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    if (!input.checked) return;
+    inferenceMethod = input.value;
+    updateMethodCopy();
+    elements.modeStatus.textContent = "設定中";
+    elements.modeStatus.classList.remove("is-warning");
+  });
+});
 elements.sizeInputs.forEach((input) => {
   input.addEventListener("change", () => {
     if (input.checked) selectBoardSize(Number(input.value));
@@ -457,12 +761,15 @@ elements.exampleButton.addEventListener("click", () => {
   elements.rhoOutput.textContent = example.rho.toFixed(2);
   initialize(example);
 });
-elements.nextButton.addEventListener("click", advanceCycle);
+elements.nextButton.addEventListener("click", advance);
 elements.editButton.addEventListener("click", () => {
   history = [];
   elements.trace.replaceChildren();
   elements.emptyState.hidden = false;
-  setEmptyState("計算の準備をします", "左の盤面で ρ と開示マスを設定すると、因子グラフと初期メッセージが作られます。");
+  setEmptyState(
+    "計算の準備をします",
+    "左の盤面で推論手法、ρ、開示マスを設定すると計算状態が作られます。",
+  );
   elements.expandButton.hidden = true;
   elements.cycleNumber.textContent = "0";
   setMode("setup");
@@ -474,5 +781,6 @@ elements.expandButton.addEventListener("click", () => {
   updateExpandButtonLabel();
 });
 
+updateMethodCopy();
 renderStaticLatex();
 renderBoard();

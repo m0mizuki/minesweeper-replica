@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="2×2・3×3マインスイーパーのBelief Propagationメッセージ更新を1サイクルずつ追跡する教材アプリ" />
-    <title>BP Message Lab — Minesweeper</title>
+    <meta name="description" content="2×2・3×3マインスイーパーのBelief Propagationとblocked Gibbs samplingを1ステップずつ追跡する教材アプリ" />
+    <title>Minesweeper Inference Lab</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230b1736'/%3E%3Ccircle cx='22' cy='32' r='10' fill='%236dd3ff'/%3E%3Crect x='35' y='22' width='20' height='20' rx='4' fill='%23ffb55b'/%3E%3Cpath d='M30 32h5' stroke='%23fff' stroke-width='4'/%3E%3C/svg%3E" />
     <link
       rel="stylesheet"
@@ -24,11 +24,11 @@
   <body>
     <header class="app-header">
       <div>
-        <p class="eyebrow">SUM–PRODUCT / FACTOR GRAPH</p>
-        <h1>BP Message Lab</h1>
+        <p class="eyebrow" id="method-eyebrow">SUM–PRODUCT / FACTOR GRAPH</p>
+        <h1>Minesweeper Inference Lab</h1>
       </div>
       <div class="cycle-badge" aria-live="polite">
-        <span>cycle</span>
+        <span id="counter-label">cycle</span>
         <strong id="cycle-number">0</strong>
       </div>
     </header>
@@ -52,6 +52,19 @@
         </div>
 
         <div class="setup-panel" id="setup-panel">
+          <fieldset class="board-size-control method-control">
+            <legend>推論手法</legend>
+            <div class="size-options method-options">
+              <label>
+                <input type="radio" name="inference-method" value="bp" checked />
+                <span>Belief Propagation</span>
+              </label>
+              <label>
+                <input type="radio" name="inference-method" value="gibbs" />
+                <span>Blocked Gibbs</span>
+              </label>
+            </div>
+          </fieldset>
           <fieldset class="board-size-control">
             <legend>盤面サイズ</legend>
             <div class="size-options">
@@ -84,27 +97,27 @@
           <div class="run-summary">
             <span><b id="variable-count">0</b> variables</span>
             <span><b id="factor-count">0</b> factors</span>
-            <span><b id="edge-count">0</b> edges</span>
+            <span><b id="edge-count">0</b> <i id="third-metric-label">edges</i></span>
           </div>
           <div class="button-row">
             <button class="button button-primary button-cycle" id="next-cycle-button" type="button">
-              <span>1サイクル進める</span>
-              <small><span class="math-inline" data-latex="m_{i\to a}"></span> → <span class="math-inline" data-latex="m_{a\to i}"></span></small>
+              <span id="next-button-label">1サイクル進める</span>
+              <small id="next-button-detail"><span class="math-inline" data-latex="m_{i\to a}"></span> → <span class="math-inline" data-latex="m_{a\to i}"></span></small>
             </button>
             <button class="button button-secondary" id="edit-button" type="button">条件を変更</button>
           </div>
         </div>
 
-        <aside class="model-note">
-          <strong>地雷密度の扱い</strong>
-          <p><span class="math-inline" data-latex="\rho"></span> は盤面生成のみに使用します。添付資料に合わせ、BP の初期メッセージはすべて <span class="math-inline" data-latex="[0.5,\,0.5]"></span> です。</p>
+        <aside class="model-note" id="model-note">
+          <strong id="model-note-title">地雷密度の扱い</strong>
+          <p id="model-note-copy"><span class="math-inline" data-latex="\rho"></span> は盤面生成のみに使用します。BP の初期メッセージはすべて <span class="math-inline" data-latex="[0.5,\,0.5]"></span> です。</p>
         </aside>
       </section>
 
       <section class="inspector" aria-labelledby="messages-title">
         <div class="section-heading inspector-heading">
           <div>
-            <p class="section-index">02 / MESSAGE TRACE</p>
+            <p class="section-index" id="trace-index">02 / MESSAGE TRACE</p>
             <h2 id="messages-title">メッセージ計算</h2>
           </div>
           <div class="inspector-actions">
@@ -124,7 +137,7 @@
             <span class="node node-factor math-inline" data-latex="a_j"></span>
           </div>
           <h3>計算の準備をします</h3>
-          <p>左の盤面で ρ と開示マスを設定すると、因子グラフと初期メッセージが作られます。</p>
+          <p>左の盤面で推論手法、ρ、開示マスを設定すると計算状態が作られます。</p>
         </div>
 
         <div id="trace" class="trace" aria-live="polite"></div>
