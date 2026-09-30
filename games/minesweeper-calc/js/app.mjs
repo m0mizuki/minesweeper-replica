@@ -41,7 +41,6 @@ const elements = {
   editButton: document.querySelector("#edit-button"),
   cycleNumber: document.querySelector("#cycle-number"),
   counterLabel: document.querySelector("#counter-label"),
-  methodEyebrow: document.querySelector("#method-eyebrow"),
   modeStatus: document.querySelector("#mode-status"),
   variableCount: document.querySelector("#variable-count"),
   factorCount: document.querySelector("#factor-count"),
@@ -116,9 +115,6 @@ function updateMethodCopy() {
   elements.methodInputs.forEach((input) => {
     input.checked = input.value === inferenceMethod;
   });
-  elements.methodEyebrow.textContent = isBP
-    ? "SUM–PRODUCT / FACTOR GRAPH"
-    : "MCMC / BLOCKED CONDITIONAL";
   elements.counterLabel.textContent = isBP ? "cycle" : "step";
   elements.nextButtonLabel.textContent = isBP ? "1サイクル進める" : "1ステップ進める";
   elements.nextButtonDetail.replaceChildren();
