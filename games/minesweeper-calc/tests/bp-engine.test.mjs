@@ -28,6 +28,18 @@ test("1サイクル目の a1→x1 は [2/3, 1/3]", () => {
   approximately(message[1], 1 / 3);
   const calculation = trace.factorCalculations.find(({ name }) => name === "m_a1→x1");
   assert.deepEqual(calculation.rows.map((row) => row.assignments.length), [2, 1]);
+  assert.deepEqual(
+    calculation.rows[0].assignments[0].terms.map(({ from, to, argument, probability }) => ({
+      from,
+      to,
+      argument,
+      probability,
+    })),
+    [
+      { from: "x2", to: "a1", argument: 1, probability: 0.5 },
+      { from: "x3", to: "a1", argument: 0, probability: 0.5 },
+    ],
+  );
 });
 
 test("2サイクル目の x3→a1 は [1/3, 2/3]", () => {

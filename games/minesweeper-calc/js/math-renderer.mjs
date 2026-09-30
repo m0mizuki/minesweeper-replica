@@ -45,6 +45,10 @@ export function messageToLatex(from, to, argument = null) {
   return `m_{${idToLatex(from)}\\to ${idToLatex(to)}}${suffix}`;
 }
 
+export function messageValueToLatex(term, value, formatter) {
+  return `${messageToLatex(term.from, term.to, term.argument)}=${formatter(value)}`;
+}
+
 export function vectorToLatex(vector, formatter) {
   return `\\left[${formatter(vector[0])},\\;${formatter(vector[1])}\\right]`;
 }

@@ -10,6 +10,7 @@ import {
   idToLatex,
   joinProductLatex,
   messageToLatex,
+  messageValueToLatex,
   renderLatex,
   renderStaticLatex,
   vectorToLatex,
@@ -159,7 +160,7 @@ function renderVariableCalculation(calculation) {
   calculation.rows.forEach((row) => {
     const line = document.createElement("p");
     const expression = row.terms.length
-      ? joinProductLatex(row.terms.map((term) => `${messageToLatex(term.from, term.to, term.argument)}=${formatNumber(term.value)}`))
+      ? joinProductLatex(row.terms.map((term) => messageValueToLatex(term, term.value, formatNumber)))
       : "1\\;\\text{（空積）}";
     line.append(
       mathSpan(messageToLatex(calculation.from, calculation.to, row.value), "formula-key"),
@@ -207,7 +208,9 @@ function renderFactorCalculation(calculation) {
           ? `\\left(${calculation.otherVariableIds.map((id) => `${idToLatex(id)}=${assignment.values[id]}`).join(",\\;")}\\right)`
           : "\\text{（他変数なし）}";
         const productExpression = assignment.terms.length
-          ? joinProductLatex(assignment.terms.map((term) => formatNumber(term.probability)))
+          ? joinProductLatex(assignment.terms.map((term) => (
+            messageValueToLatex(term, term.probability, formatNumber)
+          )))
           : "1";
         assignmentLine.append(
           mathSpan(values),
