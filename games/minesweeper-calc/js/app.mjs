@@ -50,6 +50,8 @@ const elements = {
   factorCount: document.querySelector("#factor-count"),
   edgeCount: document.querySelector("#edge-count"),
   thirdMetricLabel: document.querySelector("#third-metric-label"),
+  blockLegend: document.querySelector("#block-legend"),
+  blockLegendLabel: document.querySelector("#block-legend-label"),
   modelNoteTitle: document.querySelector("#model-note-title"),
   modelNoteCopy: document.querySelector("#model-note-copy"),
   blockSizeNote: document.querySelector("#block-size-note"),
@@ -209,9 +211,22 @@ function selectBoardSize(nextSize) {
   renderBoard();
 }
 
+function displayedGibbsBlock() {
+  if (mode !== "running" || inferenceMethod !== "gibbs" || !gibbsState?.blocks.length) {
+    return null;
+  }
+  const blockIndex = gibbsState.step === 0
+    ? 0
+    : (gibbsState.step - 1) % gibbsState.blocks.length;
+  return gibbsState.blocks[blockIndex];
+}
+
 function renderBoard() {
   syncBoardSizeUI();
   syncBlockSizeUI();
+  const activeBlock = displayedGibbsBlock();
+  elements.blockLegend.hidden = !activeBlock;
+  if (activeBlock) elements.blockLegendLabel.textContent = activeBlock.id;
   elements.board.replaceChildren();
   for (let row = 0; row < boardSize; row += 1) {
     for (let col = 0; col < boardSize; col += 1) {
@@ -252,6 +267,8 @@ function renderBoard() {
             ? gibbsState.assignment[modelCell.id]
             : null;
           if (currentValue === 1) cell.classList.add("is-current-mine");
+          const isBlockMember = activeBlock?.variableIds.includes(modelCell.id) ?? false;
+          if (isBlockMember) cell.classList.add("is-block-member");
           cell.style.setProperty("--probability", `${mineProbability * 100}%`);
           const label = document.createElement("strong");
           renderLatex(label, idToLatex(modelCell.id));
@@ -263,11 +280,17 @@ function renderBoard() {
                 : `${idToLatex(modelCell.id)}=${currentValue}\\;\\text{（初期値）}`,
             );
           cell.append(label, probability);
+          if (isBlockMember) {
+            const blockBadge = document.createElement("span");
+            blockBadge.className = "block-badge";
+            blockBadge.textContent = activeBlock.id;
+            cell.append(blockBadge);
+          }
           cell.setAttribute(
             "aria-label",
             inferenceMethod === "bp"
               ? `未開示マス ${modelCell.id}、地雷確率 ${formatNumber(mineProbability)}`
-              : `未開示マス ${modelCell.id}、現在値 ${currentValue}、経験地雷確率 ${formatNumber(mineProbability)}`,
+              : `未開示マス ${modelCell.id}、現在値 ${currentValue}、経験地雷確率 ${formatNumber(mineProbability)}${isBlockMember ? `、現在のブロック ${activeBlock.id}` : ""}`,
           );
         }
       }

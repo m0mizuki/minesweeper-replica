@@ -152,6 +152,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .factor-cell { color: #703205; background: var(--orange-soft); }
 .factor-cell::after { content: ""; position: absolute; inset: 7px; border: 2px solid var(--yellow); }
 .variable-cell { color: #075882; background: var(--blue-soft); }
+.variable-cell.is-block-member { box-shadow: inset 0 0 0 5px var(--yellow); }
 .variable-cell.is-current-mine { color: white; background: #126f9f; }
 .variable-cell.is-current-mine::before {
   content: "";
@@ -174,11 +175,23 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
   background: rgb(109 211 255 / 26%);
   transition: height 240ms ease;
 }
+.board-cell .block-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  padding: 3px 5px;
+  color: var(--ink);
+  background: var(--yellow);
+  border: 1px solid rgb(11 23 54 / 18%);
+  font: 800 .6rem/1 "Courier New", monospace;
+}
 
 .board-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin: 23px 0 28px; color: var(--muted); font-size: .78rem; font-weight: 700; }
 .legend-dot { width: 10px; height: 10px; display: inline-block; margin-right: 5px; border-radius: 2px; }
 .variable-dot { background: var(--cyan); }
 .factor-dot { background: var(--yellow); }
+.block-dot { background: white; border: 3px solid var(--yellow); }
 
 .setup-panel, .run-panel { padding-top: 23px; border-top: 1px solid var(--line); }
 .board-size-control { min-width: 0; margin: 0 0 22px; padding: 0; border: 0; }
