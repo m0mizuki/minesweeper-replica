@@ -144,6 +144,9 @@ function updateVariableMessages(graph, previousFactorToVariable) {
     const sourceFactorIds = variable.factorIds.filter((id) => id !== edge.factorId);
     const rows = [0, 1].map((value) => {
       const terms = sourceFactorIds.map((factorId) => ({
+        from: factorId,
+        to: variable.id,
+        argument: value,
         message: `m_${factorId}→${variable.id}(${value})`,
         value: previousFactorToVariable[edgeKey(variable.id, factorId)][value],
       }));
@@ -184,6 +187,9 @@ function updateFactorMessages(graph, variableToFactor) {
             return {
               variableId,
               value: bit,
+              from: variableId,
+              to: factor.id,
+              argument: bit,
               message: `m_${variableId}→${factor.id}(${bit})`,
               probability: variableToFactor[edgeKey(variableId, factor.id)][bit],
             };

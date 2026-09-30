@@ -28,6 +28,9 @@ node --test games/minesweeper-calc/tests/bp-engine.test.mjs
 
 - `js/bp-engine.mjs`: 盤面、因子グラフ、BP更新、計算トレースを扱う独立モジュール
 - `js/app.mjs`: 画面状態と描画
+- `js/math-renderer.mjs`: KaTeXによるLaTeX数式描画とフォールバック
 - `styles.css`: 盤面・計算トレースの表示
+
+数式表示には [KaTeX](https://katex.org/) 0.18.9 をCDN経由で使用します。CDNを読み込めない場合はLaTeXソース表示へフォールバックします。
 
 将来 MCMC 表示を追加する場合も、BP 固有の計算は `bp-engine.mjs` に閉じているため、別エンジン・別表示パネルとして追加できます。

@@ -6,7 +6,20 @@
     <meta name="description" content="3×3マインスイーパーのBelief Propagationメッセージ更新を1サイクルずつ追跡する教材アプリ" />
     <title>BP Message Lab — 3×3 Minesweeper</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230b1736'/%3E%3Ccircle cx='22' cy='32' r='10' fill='%236dd3ff'/%3E%3Crect x='35' y='22' width='20' height='20' rx='4' fill='%23ffb55b'/%3E%3Cpath d='M30 32h5' stroke='%23fff' stroke-width='4'/%3E%3C/svg%3E" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.18.9/dist/katex.min.css"
+      integrity="sha384-lPx0C4zIUZLpveABMwOFcFeGZwsvKBJfhJ85FN1PYOV7xApBcFMhcAEMVKF8loOI"
+      crossorigin="anonymous"
+    />
     <link rel="stylesheet" href="./styles.css" />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/katex@0.18.9/dist/katex.min.js"
+      integrity="sha384-19KE2cFb3U+RUWmyhBz7aLOGDG8WrRC6hE3oY/HTZZlAAVWYTdmvLC//+TIV3zUx"
+      crossorigin="anonymous"
+      onload="window.dispatchEvent(new Event('katex-ready'))"
+    ></script>
   </head>
   <body>
     <header class="app-header">
@@ -33,15 +46,15 @@
         <div class="board-stage">
           <div class="board" id="board" role="grid" aria-label="3 × 3 マインスイーパー盤面"></div>
           <div class="board-legend" aria-label="盤面の凡例">
-            <span><i class="legend-dot variable-dot"></i>未開示変数 x<sub>i</sub></span>
-            <span><i class="legend-dot factor-dot"></i>開示因子 a<sub>j</sub></span>
+            <span><i class="legend-dot variable-dot"></i>未開示変数 <i class="math-inline" data-latex="x_i"></i></span>
+            <span><i class="legend-dot factor-dot"></i>開示因子 <i class="math-inline" data-latex="a_j"></i></span>
           </div>
         </div>
 
         <div class="setup-panel" id="setup-panel">
           <div class="rho-control">
             <div class="control-copy">
-              <label for="rho">地雷密度 <span class="rho-symbol">ρ</span></label>
+              <label for="rho">地雷密度 <span class="rho-symbol math-inline" data-latex="\rho"></span></label>
               <output id="rho-output" for="rho">0.30</output>
             </div>
             <input id="rho" type="range" min="0.05" max="0.80" step="0.05" value="0.30" />
@@ -63,15 +76,15 @@
           <div class="button-row">
             <button class="button button-primary button-cycle" id="next-cycle-button" type="button">
               <span>1サイクル進める</span>
-              <small>m<sub>i→a</sub> → m<sub>a→i</sub></small>
+              <small><span class="math-inline" data-latex="m_{i\to a}"></span> → <span class="math-inline" data-latex="m_{a\to i}"></span></small>
             </button>
             <button class="button button-secondary" id="edit-button" type="button">条件を変更</button>
           </div>
         </div>
 
         <aside class="model-note">
-          <strong>このモデルの ρ</strong>
-          <p>ρ は盤面生成のみに使用します。添付資料に合わせ、BP の初期メッセージはすべて [0.5, 0.5] です。</p>
+          <strong>地雷密度の扱い</strong>
+          <p><span class="math-inline" data-latex="\rho"></span> は盤面生成のみに使用します。添付資料に合わせ、BP の初期メッセージはすべて <span class="math-inline" data-latex="[0.5,\,0.5]"></span> です。</p>
         </aside>
       </section>
 
@@ -86,9 +99,9 @@
 
         <div class="empty-state" id="empty-state">
           <div class="empty-diagram" aria-hidden="true">
-            <span class="node node-variable">x</span>
+            <span class="node node-variable math-inline" data-latex="x_i"></span>
             <span class="edge-line"></span>
-            <span class="node node-factor">a</span>
+            <span class="node node-factor math-inline" data-latex="a_j"></span>
           </div>
           <h3>計算の準備をします</h3>
           <p>左の盤面で ρ と開示マスを設定すると、因子グラフと初期メッセージが作られます。</p>

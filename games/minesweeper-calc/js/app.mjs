@@ -6,6 +6,16 @@ import {
   createBPState,
   runCycle,
 } from "./bp-engine.mjs";
+import {
+  idToLatex,
+  messageToLatex,
+  renderLatex,
+  renderStaticLatex,
+  vectorToLatex,
+  waitForMathRenderer,
+} from "./math-renderer.mjs";
+
+await waitForMathRenderer();
 
 const elements = {
   board: document.querySelector("#board"),
@@ -41,9 +51,21 @@ const formatNumber = (value) => {
 };
 
 const vectorText = (vector) => `[${formatNumber(vector[0])}, ${formatNumber(vector[1])}]`;
+const vectorLatex = (vector) => vectorToLatex(vector, formatNumber);
 
-function subscriptLabel(id) {
-  return `${id[0]}<sub>${id.slice(1)}</sub>`;
+function mathSpan(latex, className = "") {
+  const element = document.createElement("span");
+  if (className) element.className = className;
+  return renderLatex(element, latex);
+}
+
+function setEmptyState(title, message, latex = null) {
+  elements.emptyState.querySelector("h3").textContent = title;
+  const paragraph = elements.emptyState.querySelector("p");
+  paragraph.replaceChildren(document.createTextNode(message));
+  if (latex) {
+    paragraph.append(" ", mathSpan(latex, "math-inline"), " です。『1サイクル進める』で更新式を展開します。");
+  }
 }
 
 function setMode(nextMode) {
@@ -84,14 +106,19 @@ function renderBoard() {
         cell.disabled = true;
         if (modelCell.kind === "factor") {
           cell.classList.add("factor-cell");
-          cell.innerHTML = `<strong>${modelCell.clue}</strong><span>${subscriptLabel(modelCell.id)}</span>`;
+          const clue = document.createElement("strong");
+          clue.textContent = modelCell.clue;
+          cell.append(clue, mathSpan(idToLatex(modelCell.id)));
           cell.setAttribute("aria-label", `開示マス ${modelCell.id}、数字 ${modelCell.clue}`);
         } else {
           const marginal = bpState.marginals[modelCell.id] ?? [0.5, 0.5];
           const mineProbability = marginal[1];
           cell.classList.add("variable-cell");
           cell.style.setProperty("--probability", `${mineProbability * 100}%`);
-          cell.innerHTML = `<strong>${subscriptLabel(modelCell.id)}</strong><span>P(1) ${formatNumber(mineProbability)}</span>`;
+          const label = document.createElement("strong");
+          renderLatex(label, idToLatex(modelCell.id));
+          const probability = mathSpan(`P(${idToLatex(modelCell.id)}=1)=${formatNumber(mineProbability)}`);
+          cell.append(label, probability);
           cell.setAttribute("aria-label", `未開示マス ${modelCell.id}、地雷確率 ${formatNumber(mineProbability)}`);
         }
       }
@@ -111,12 +138,11 @@ function initialize(board) {
   elements.edgeCount.textContent = graph.edges.length;
   elements.trace.replaceChildren();
   elements.emptyState.hidden = false;
-  elements.emptyState.querySelector("h3").textContent = graph.edges.length
-    ? "初期メッセージを設定しました"
-    : "更新できるメッセージがありません";
-  elements.emptyState.querySelector("p").textContent = graph.edges.length
-    ? "すべての有向メッセージは [0.5, 0.5] です。「1サイクル進める」で更新式を展開します。"
-    : "開示マスと隣接する未開示マスがないため、因子グラフに辺がありません。";
+  if (graph.edges.length) {
+    setEmptyState("初期メッセージを設定しました", "すべての有向メッセージは", "[0.5,\\,0.5]");
+  } else {
+    setEmptyState("更新できるメッセージがありません", "開示マスと隣接する未開示マスがないため、因子グラフに辺がありません。");
+  }
   elements.nextButton.disabled = graph.edges.length === 0;
   elements.expandButton.hidden = true;
   setMode("running");
@@ -124,16 +150,20 @@ function initialize(board) {
 
 function renderVariableCalculation(calculation) {
   const card = elements.template.content.firstElementChild.cloneNode(true);
-  card.querySelector(".message-name").textContent = calculation.name;
-  card.querySelector(".message-vector").textContent = vectorText(calculation.normalized);
+  renderLatex(card.querySelector(".message-name"), messageToLatex(calculation.from, calculation.to));
+  renderLatex(card.querySelector(".message-vector"), vectorLatex(calculation.normalized));
   const body = card.querySelector(".calculation-lines");
 
   calculation.rows.forEach((row) => {
     const line = document.createElement("p");
     const expression = row.terms.length
-      ? row.terms.map((term) => `${term.message} = ${formatNumber(term.value)}`).join(" × ")
-      : "1（空積）";
-    line.innerHTML = `<span class="formula-key">${calculation.name}(${row.value})</span><span> ∝ ${expression}</span><b>= ${formatNumber(row.raw)}</b>`;
+      ? row.terms.map((term) => `${messageToLatex(term.from, term.to, term.argument)}=${formatNumber(term.value)}`).join("\\times")
+      : "1\\;\\text{（空積）}";
+    line.append(
+      mathSpan(messageToLatex(calculation.from, calculation.to, row.value), "formula-key"),
+      mathSpan(`\\propto ${expression}`),
+      mathSpan(`=${formatNumber(row.raw)}`, "result-value"),
+    );
     body.append(line);
   });
   appendNormalization(body, calculation);
@@ -142,21 +172,24 @@ function renderVariableCalculation(calculation) {
 
 function renderFactorCalculation(calculation) {
   const card = elements.template.content.firstElementChild.cloneNode(true);
-  card.querySelector(".message-name").textContent = calculation.name;
-  card.querySelector(".message-vector").textContent = vectorText(calculation.normalized);
+  renderLatex(card.querySelector(".message-name"), messageToLatex(calculation.from, calculation.to));
+  renderLatex(card.querySelector(".message-vector"), vectorLatex(calculation.normalized));
   const body = card.querySelector(".calculation-lines");
 
   const constraint = document.createElement("p");
   constraint.className = "constraint-line";
-  const variables = [calculation.to, ...calculation.otherVariableIds].join(" + ");
-  constraint.textContent = `制約: ${variables} = ${calculation.clue}`;
+  const variables = [calculation.to, ...calculation.otherVariableIds].map(idToLatex).join("+");
+  renderLatex(constraint, `\\text{制約: }${variables}=${calculation.clue}`);
   body.append(constraint);
 
   calculation.rows.forEach((row) => {
     const group = document.createElement("div");
     group.className = "assignment-group";
     const heading = document.createElement("p");
-    heading.innerHTML = `<span class="formula-key">${calculation.name}(${row.value})</span><span> ∝ 有効な割当の和</span>`;
+    heading.append(
+      mathSpan(messageToLatex(calculation.from, calculation.to, row.value), "formula-key"),
+      mathSpan("\\propto\\;\\text{有効な割当の和}"),
+    );
     group.append(heading);
 
     if (row.assignments.length === 0) {
@@ -169,17 +202,21 @@ function renderFactorCalculation(calculation) {
         const assignmentLine = document.createElement("p");
         assignmentLine.className = "assignment-row";
         const values = calculation.otherVariableIds.length
-          ? `(${calculation.otherVariableIds.map((id) => `${id}=${assignment.values[id]}`).join(", ")})`
-          : "(他変数なし)";
+          ? `\\left(${calculation.otherVariableIds.map((id) => `${idToLatex(id)}=${assignment.values[id]}`).join(",\\;")}\\right)`
+          : "\\text{（他変数なし）}";
         const productExpression = assignment.terms.length
-          ? assignment.terms.map((term) => formatNumber(term.probability)).join(" × ")
+          ? assignment.terms.map((term) => formatNumber(term.probability)).join("\\times")
           : "1";
-        assignmentLine.innerHTML = `<span>${values}</span><span>${productExpression}</span><b>${formatNumber(assignment.product)}</b>`;
+        assignmentLine.append(
+          mathSpan(values),
+          mathSpan(productExpression),
+          mathSpan(`=${formatNumber(assignment.product)}`, "result-value"),
+        );
         group.append(assignmentLine);
       });
       const sumLine = document.createElement("p");
       sumLine.className = "sum-line";
-      sumLine.textContent = `合計 = ${formatNumber(row.raw)}`;
+      renderLatex(sumLine, `\\text{合計}=${formatNumber(row.raw)}`);
       group.append(sumLine);
     }
     body.append(group);
@@ -191,9 +228,12 @@ function renderFactorCalculation(calculation) {
 function appendNormalization(body, calculation) {
   const result = document.createElement("p");
   result.className = calculation.impossible ? "normalization is-error" : "normalization";
-  result.innerHTML = calculation.impossible
-    ? "Z = 0 — この局所制約は矛盾しています"
-    : `Z = ${formatNumber(calculation.normalization)}　→　<strong>${vectorText(calculation.normalized)}</strong>`;
+  renderLatex(
+    result,
+    calculation.impossible
+      ? "Z=0\\quad\\text{— この局所制約は矛盾しています}"
+      : `Z=${formatNumber(calculation.normalization)}\\quad\\Longrightarrow\\quad ${vectorLatex(calculation.normalized)}`,
+  );
   body.append(result);
 }
 
@@ -202,7 +242,16 @@ function createPhase(title, formula, calculations, kind) {
   section.className = `phase phase-${kind}`;
   const heading = document.createElement("div");
   heading.className = "phase-heading";
-  heading.innerHTML = `<div><span class="phase-chip">${kind === "variable" ? "STEP 1" : "STEP 2"}</span><h4>${title}</h4></div><code>${formula}</code>`;
+  const headingLabel = document.createElement("div");
+  const chip = document.createElement("span");
+  chip.className = "phase-chip";
+  chip.textContent = kind === "variable" ? "STEP 1" : "STEP 2";
+  const headingTitle = document.createElement("h4");
+  headingTitle.textContent = title;
+  const formulaElement = document.createElement("code");
+  renderLatex(formulaElement, formula);
+  headingLabel.append(chip, headingTitle);
+  heading.append(headingLabel, formulaElement);
   section.append(heading);
   const grid = document.createElement("div");
   grid.className = "message-grid";
@@ -227,25 +276,32 @@ function renderTrace(trace) {
   content.className = "cycle-content";
   content.append(createPhase(
     "変数 → 因子",
-    "mᵢ→ₐ(xᵢ) ∝ ∏ᵦ∈∂ᵢ∖ₐ mᵦ→ᵢ(xᵢ)",
+    "m_{i\\to a}(x_i)\\propto\\prod_{b\\in\\partial i\\setminus a}m_{b\\to i}(x_i)",
     trace.variableCalculations,
     "variable",
   ));
   content.append(createPhase(
     "因子 → 変数",
-    "mₐ→ᵢ(xᵢ) ∝ Σₓ∂ₐ∖ᵢ δ(xᵢ + Σⱼ∈∂ₐ∖ᵢ xⱼ, cₐ) ∏ⱼ∈∂ₐ∖ᵢ mⱼ→ₐ(xⱼ)",
+    "m_{a\\to i}(x_i)\\propto\\sum_{\\mathbf{x}_{\\partial a\\setminus i}}\\delta\\!\\left(x_i+\\sum_{j\\in\\partial a\\setminus i}x_j,c_a\\right)\\prod_{j\\in\\partial a\\setminus i}m_{j\\to a}(x_j)",
     trace.factorCalculations,
     "factor",
   ));
 
   const marginal = document.createElement("section");
   marginal.className = "marginal-strip";
-  marginal.innerHTML = `<div><span class="phase-chip">RESULT</span><h4>Cycle ${trace.cycle} 後の周辺確率</h4></div>`;
+  const marginalHeading = document.createElement("div");
+  const marginalChip = document.createElement("span");
+  marginalChip.className = "phase-chip";
+  marginalChip.textContent = "RESULT";
+  const marginalTitle = document.createElement("h4");
+  marginalTitle.textContent = `Cycle ${trace.cycle} 後の周辺確率`;
+  marginalHeading.append(marginalChip, marginalTitle);
+  marginal.append(marginalHeading);
   const values = document.createElement("div");
   values.className = "marginal-values";
   graph.variables.forEach((variable) => {
     const item = document.createElement("span");
-    item.innerHTML = `${subscriptLabel(variable.id)} <b>${vectorText(trace.marginals[variable.id])}</b>`;
+    renderLatex(item, `${idToLatex(variable.id)}:\\;${vectorLatex(trace.marginals[variable.id])}`);
     values.append(item);
   });
   marginal.append(values);
@@ -298,8 +354,7 @@ elements.editButton.addEventListener("click", () => {
   history = [];
   elements.trace.replaceChildren();
   elements.emptyState.hidden = false;
-  elements.emptyState.querySelector("h3").textContent = "計算の準備をします";
-  elements.emptyState.querySelector("p").textContent = "左の盤面で ρ と開示マスを設定すると、因子グラフと初期メッセージが作られます。";
+  setEmptyState("計算の準備をします", "左の盤面で ρ と開示マスを設定すると、因子グラフと初期メッセージが作られます。");
   elements.expandButton.hidden = true;
   elements.cycleNumber.textContent = "0";
   setMode("setup");
@@ -311,4 +366,5 @@ elements.expandButton.addEventListener("click", () => {
   elements.expandButton.textContent = shouldOpen ? "すべて折りたたむ" : "すべて展開";
 });
 
+renderStaticLatex();
 renderBoard();

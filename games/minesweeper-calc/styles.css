@@ -169,7 +169,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .setup-panel, .run-panel { padding-top: 23px; border-top: 1px solid var(--line); }
 .rho-control { margin-bottom: 19px; }
 .control-copy { display: flex; justify-content: space-between; align-items: center; margin-bottom: 11px; font-weight: 800; }
-.rho-symbol { font-family: Georgia, serif; font-size: 1.25rem; font-style: italic; }
+.rho-symbol { font-size: 1.08rem; }
 .control-copy output { min-width: 58px; padding: 6px 8px; background: var(--ink); color: white; font-family: "Courier New", monospace; text-align: center; }
 input[type="range"] { width: 100%; accent-color: var(--blue); }
 .range-labels { display: flex; justify-content: space-between; margin-top: 3px; color: var(--muted); font-family: "Courier New", monospace; font-size: .7rem; }
@@ -237,7 +237,7 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .phase-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 16px; }
 .phase-heading > div, .marginal-strip > div:first-child { display: flex; align-items: center; gap: 10px; }
 .phase-heading h4, .marginal-strip h4 { margin: 0; font-size: .95rem; }
-.phase-heading code { max-width: 64%; color: var(--muted); font-family: "Cambria Math", Georgia, serif; font-size: .81rem; text-align: right; }
+.phase-heading code { max-width: 64%; color: var(--muted); font-family: "Cambria Math", Georgia, serif; font-size: .88rem; text-align: right; }
 .phase-chip { padding: 4px 6px; color: white; background: var(--ink); font: 700 .65rem "Courier New", monospace; }
 .phase-factor .phase-chip { color: #522500; background: var(--yellow); }
 
@@ -245,13 +245,13 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .message-card { min-width: 0; border: 1px solid var(--line); border-top: 3px solid var(--cyan); }
 .phase-factor .message-card { border-top-color: var(--yellow); }
 .message-card > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: #f7f9fc; border-bottom: 1px solid var(--line); }
-.message-name { color: var(--ink); font-size: .78rem; font-weight: 800; }
-.message-vector { color: var(--blue); font: 800 .78rem "Courier New", monospace; white-space: nowrap; }
+.message-name { color: var(--ink); font-size: .84rem; font-weight: 800; }
+.message-vector { color: var(--blue); font: 800 .84rem "Courier New", monospace; white-space: nowrap; }
 .phase-factor .message-vector { color: var(--orange); }
 .calculation-lines { padding: 7px 12px 11px; overflow-wrap: anywhere; }
-.calculation-lines p { display: grid; grid-template-columns: minmax(95px, auto) 1fr auto; gap: 7px; align-items: baseline; margin: 7px 0; color: var(--muted); font: .72rem/1.48 "Courier New", monospace; }
+.calculation-lines p { display: grid; grid-template-columns: minmax(95px, auto) 1fr auto; gap: 7px; align-items: baseline; margin: 7px 0; color: var(--muted); font: .78rem/1.55 "Courier New", monospace; }
 .calculation-lines p b { color: var(--ink); }
-.formula-key { color: var(--ink); font-weight: 800; }
+.formula-key, .result-value { color: var(--ink); font-weight: 800; }
 .calculation-lines .constraint-line { display: block; margin-bottom: 10px; padding: 6px 8px; color: #733507; background: var(--orange-soft); }
 .assignment-group { margin-top: 10px; padding-top: 7px; border-top: 1px dashed var(--line); }
 .assignment-group:first-of-type { border-top: 0; }
@@ -266,6 +266,15 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .marginal-values { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .marginal-values > span { padding: 6px 8px; color: #dbe9ff; background: rgb(255 255 255 / 9%); font: .72rem "Courier New", monospace; }
 .marginal-values b { color: white; }
+
+.math-inline { display: inline-block; font-style: normal; }
+.katex { font-size: 1em; }
+.board-cell strong .katex { font-size: 1.08em; }
+.board-cell > span .katex { font-size: .9em; }
+.phase-heading code .katex { font-size: .98em; }
+.message-name .katex, .message-vector .katex { font-size: 1.05em; }
+.normalization .katex { font-size: 1.04em; }
+.latex-fallback { font-family: "Cambria Math", Georgia, serif; }
 
 [hidden] { display: none !important; }
 
