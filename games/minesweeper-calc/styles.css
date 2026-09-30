@@ -186,6 +186,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
   border: 1px solid rgb(11 23 54 / 18%);
   font: 800 .6rem/1 "Courier New", monospace;
 }
+.board-cell .gibbs-cell-value { display: grid; gap: 1px; justify-items: center; }
+.board-cell .gibbs-cell-value > .math-inline { white-space: nowrap; }
 
 .board-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin: 23px 0 28px; color: var(--muted); font-size: .78rem; font-weight: 700; }
 .legend-dot { width: 10px; height: 10px; display: inline-block; margin-right: 5px; border-radius: 2px; }

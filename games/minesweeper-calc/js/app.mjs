@@ -272,13 +272,24 @@ function renderBoard() {
           cell.style.setProperty("--probability", `${mineProbability * 100}%`);
           const label = document.createElement("strong");
           renderLatex(label, idToLatex(modelCell.id));
-          const probability = inferenceMethod === "bp"
-            ? mathSpan(`P(${idToLatex(modelCell.id)}=1)=${formatNumber(mineProbability)}`)
-            : mathSpan(
-              gibbsState.sampleCount > 0
-                ? `${idToLatex(modelCell.id)}=${currentValue},\\;\\hat P(1)=${formatNumber(mineProbability)}`
-                : `${idToLatex(modelCell.id)}=${currentValue}\\;\\text{（初期値）}`,
-            );
+          let probability;
+          if (inferenceMethod === "bp") {
+            probability = mathSpan(`P(${idToLatex(modelCell.id)}=1)=${formatNumber(mineProbability)}`);
+          } else {
+            probability = document.createElement("span");
+            probability.className = "gibbs-cell-value";
+            if (gibbsState.sampleCount > 0) {
+              probability.append(
+                mathSpan(`${idToLatex(modelCell.id)}=${currentValue},`, "math-inline"),
+                mathSpan(`\\hat P(1)=${formatNumber(mineProbability)}`, "math-inline"),
+              );
+            } else {
+              probability.append(mathSpan(
+                `${idToLatex(modelCell.id)}=${currentValue}\\;\\text{（初期値）}`,
+                "math-inline",
+              ));
+            }
+          }
           cell.append(label, probability);
           if (isBlockMember) {
             const blockBadge = document.createElement("span");
