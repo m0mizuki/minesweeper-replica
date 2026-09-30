@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="3×3マインスイーパーのBelief Propagationメッセージ更新を1サイクルずつ追跡する教材アプリ" />
+    <title>BP Message Lab — 3×3 Minesweeper</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230b1736'/%3E%3Ccircle cx='22' cy='32' r='10' fill='%236dd3ff'/%3E%3Crect x='35' y='22' width='20' height='20' rx='4' fill='%23ffb55b'/%3E%3Cpath d='M30 32h5' stroke='%23fff' stroke-width='4'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">SUM–PRODUCT / FACTOR GRAPH</p>
+        <h1>BP Message Lab</h1>
+      </div>
+      <div class="cycle-badge" aria-live="polite">
+        <span>cycle</span>
+        <strong id="cycle-number">0</strong>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="workspace" aria-labelledby="board-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-index">01 / BOARD</p>
+            <h2 id="board-title">3×3 盤面</h2>
+          </div>
+          <span class="status-pill" id="mode-status">設定中</span>
+        </div>
+
+        <div class="board-stage">
+          <div class="board" id="board" role="grid" aria-label="3 × 3 マインスイーパー盤面"></div>
+          <div class="board-legend" aria-label="盤面の凡例">
+            <span><i class="legend-dot variable-dot"></i>未開示変数 x<sub>i</sub></span>
+            <span><i class="legend-dot factor-dot"></i>開示因子 a<sub>j</sub></span>
+          </div>
+        </div>
+
+        <div class="setup-panel" id="setup-panel">
+          <div class="rho-control">
+            <div class="control-copy">
+              <label for="rho">地雷密度 <span class="rho-symbol">ρ</span></label>
+              <output id="rho-output" for="rho">0.30</output>
+            </div>
+            <input id="rho" type="range" min="0.05" max="0.80" step="0.05" value="0.30" />
+            <div class="range-labels"><span>0.05</span><span>0.80</span></div>
+          </div>
+          <p class="setup-hint">盤面をクリックして開示マスを選択してください。選択したマスは安全マスとして生成します。</p>
+          <div class="button-row">
+            <button class="button button-primary" id="start-button" type="button">この条件で開始</button>
+            <button class="button button-secondary" id="example-button" type="button">資料の例を読み込む</button>
+          </div>
+        </div>
+
+        <div class="run-panel" id="run-panel" hidden>
+          <div class="run-summary">
+            <span><b id="variable-count">0</b> variables</span>
+            <span><b id="factor-count">0</b> factors</span>
+            <span><b id="edge-count">0</b> edges</span>
+          </div>
+          <div class="button-row">
+            <button class="button button-primary button-cycle" id="next-cycle-button" type="button">
+              <span>1サイクル進める</span>
+              <small>m<sub>i→a</sub> → m<sub>a→i</sub></small>
+            </button>
+            <button class="button button-secondary" id="edit-button" type="button">条件を変更</button>
+          </div>
+        </div>
+
+        <aside class="model-note">
+          <strong>このモデルの ρ</strong>
+          <p>ρ は盤面生成のみに使用します。添付資料に合わせ、BP の初期メッセージはすべて [0.5, 0.5] です。</p>
+        </aside>
+      </section>
+
+      <section class="inspector" aria-labelledby="messages-title">
+        <div class="section-heading inspector-heading">
+          <div>
+            <p class="section-index">02 / MESSAGE TRACE</p>
+            <h2 id="messages-title">メッセージ計算</h2>
+          </div>
+          <button class="text-button" id="expand-button" type="button" hidden>すべて展開</button>
+        </div>
+
+        <div class="empty-state" id="empty-state">
+          <div class="empty-diagram" aria-hidden="true">
+            <span class="node node-variable">x</span>
+            <span class="edge-line"></span>
+            <span class="node node-factor">a</span>
+          </div>
+          <h3>計算の準備をします</h3>
+          <p>左の盤面で ρ と開示マスを設定すると、因子グラフと初期メッセージが作られます。</p>
+        </div>
+
+        <div id="trace" class="trace" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <template id="message-card-template">
+      <article class="message-card">
+        <header>
+          <code class="message-name"></code>
+          <span class="message-vector"></span>
+        </header>
+        <div class="calculation-lines"></div>
+      </article>
+    </template>
+
+    <script type="module" src="./js/app.mjs"></script>
+  </body>
+</html>
