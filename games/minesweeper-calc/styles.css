@@ -236,6 +236,8 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .model-note { margin-top: 24px; padding: 14px 15px; color: var(--muted); background: #f7f9fc; border-left: 4px solid var(--line); font-size: .76rem; line-height: 1.6; }
 .model-note strong { display: block; margin-bottom: 2px; color: var(--ink); }
 .model-note p { margin: 0; }
+.block-size-note { margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--line); }
+.block-size-note ul { display: grid; gap: 4px; margin: 5px 0 0; padding-left: 1.25em; }
 
 .inspector-heading { min-height: 48px; }
 .inspector-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 14px; }

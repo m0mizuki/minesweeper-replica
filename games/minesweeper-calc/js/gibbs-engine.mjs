@@ -28,37 +28,34 @@ function createInitialAssignment(graph) {
   throw new Error("盤面の数字を同時に満たす地雷配置がありません。");
 }
 
-export function createGibbsBlocks(graph) {
-  const blocks = [];
-  const visitedVariables = new Set();
-  const variableById = Object.fromEntries(graph.variables.map((variable) => [variable.id, variable]));
-  const factorById = Object.fromEntries(graph.factors.map((factor) => [factor.id, factor]));
-  for (const variable of graph.variables) {
-    if (visitedVariables.has(variable.id)) continue;
-    const pending = [variable.id];
-    const variableIds = [];
-    const sourceFactorIds = new Set();
-    visitedVariables.add(variable.id);
-
-    while (pending.length) {
-      const variableId = pending.shift();
-      variableIds.push(variableId);
-      for (const factorId of variableById[variableId].factorIds) {
-        sourceFactorIds.add(factorId);
-        for (const neighborId of factorById[factorId].variableIds) {
-          if (visitedVariables.has(neighborId)) continue;
-          visitedVariables.add(neighborId);
-          pending.push(neighborId);
-        }
-      }
-    }
-    blocks.push({
-      id: `B${blocks.length + 1}`,
-      variableIds,
-      sourceFactorIds: [...sourceFactorIds],
-    });
+function combinations(values, size, start = 0, prefix = [], result = []) {
+  if (prefix.length === size) {
+    result.push([...prefix]);
+    return result;
   }
-  return blocks;
+  const remaining = size - prefix.length;
+  for (let index = start; index <= values.length - remaining; index += 1) {
+    prefix.push(values[index]);
+    combinations(values, size, index + 1, prefix, result);
+    prefix.pop();
+  }
+  return result;
+}
+
+export function createGibbsBlocks(graph, blockSize = graph.variables.length) {
+  const variableIds = graph.variables.map(({ id }) => id);
+  if (variableIds.length === 0) return [];
+  if (!Number.isInteger(blockSize) || blockSize < 2 || blockSize > variableIds.length) {
+    throw new RangeError(`blockSize は 2 以上 ${variableIds.length} 以下で指定してください。`);
+  }
+
+  return combinations(variableIds, blockSize).map((blockVariableIds, index) => ({
+    id: `B${index + 1}`,
+    variableIds: blockVariableIds,
+    sourceFactorIds: graph.factors
+      .filter((factor) => factor.variableIds.some((id) => blockVariableIds.includes(id)))
+      .map(({ id }) => id),
+  }));
 }
 
 function empiricalMarginals(graph, assignment, mineCounts, sampleCount) {
@@ -70,12 +67,13 @@ function empiricalMarginals(graph, assignment, mineCounts, sampleCount) {
   }));
 }
 
-export function createGibbsState(graph) {
-  const blocks = createGibbsBlocks(graph);
+export function createGibbsState(graph, blockSize = graph.variables.length) {
+  const blocks = createGibbsBlocks(graph, blockSize);
   const assignment = createInitialAssignment(graph);
   const mineCounts = Object.fromEntries(graph.variables.map(({ id }) => [id, 0]));
   return {
     step: 0,
+    blockSize,
     blocks,
     assignment,
     sampleCount: 0,

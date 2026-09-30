@@ -31,6 +31,10 @@ const elements = {
   sizeInputs: [...document.querySelectorAll('input[name="board-size"]')],
   rho: document.querySelector("#rho"),
   rhoOutput: document.querySelector("#rho-output"),
+  blockSizeControl: document.querySelector("#block-size-control"),
+  blockSize: document.querySelector("#block-size"),
+  blockSizeOutput: document.querySelector("#block-size-output"),
+  blockSizeMaxLabel: document.querySelector("#block-size-max-label"),
   setupPanel: document.querySelector("#setup-panel"),
   runPanel: document.querySelector("#run-panel"),
   startButton: document.querySelector("#start-button"),
@@ -48,6 +52,7 @@ const elements = {
   thirdMetricLabel: document.querySelector("#third-metric-label"),
   modelNoteTitle: document.querySelector("#model-note-title"),
   modelNoteCopy: document.querySelector("#model-note-copy"),
+  blockSizeNote: document.querySelector("#block-size-note"),
   traceIndex: document.querySelector("#trace-index"),
   messagesTitle: document.querySelector("#messages-title"),
   emptyState: document.querySelector("#empty-state"),
@@ -133,6 +138,8 @@ function updateMethodCopy() {
   elements.traceIndex.textContent = isBP ? "02 / MESSAGE TRACE" : "02 / SAMPLING TRACE";
   elements.messagesTitle.textContent = isBP ? "メッセージ計算" : "Blocked Gibbs 計算";
   elements.thirdMetricLabel.textContent = isBP ? "edges" : "blocks";
+  elements.blockSizeControl.hidden = isBP;
+  elements.blockSizeNote.hidden = isBP;
   elements.modelNoteTitle.textContent = isBP ? "地雷密度の扱い" : "条件付き分布の扱い";
   elements.modelNoteCopy.replaceChildren();
   if (isBP) {
@@ -153,6 +160,7 @@ function updateMethodCopy() {
       "、ブロック条件付き確率は制約因子の積だけで決まります。",
     );
   }
+  syncBlockSizeUI();
 }
 
 function setMode(nextMode) {
@@ -179,6 +187,19 @@ function syncBoardSizeUI() {
   });
 }
 
+function syncBlockSizeUI() {
+  const variableCount = boardSize ** 2 - selectedRevealed.size;
+  const hasMinimumVariables = variableCount >= 2;
+  const maximum = Math.max(2, variableCount);
+  const current = Number(elements.blockSize.value);
+  const nextValue = Math.min(Math.max(current, 2), maximum);
+  elements.blockSize.max = String(maximum);
+  elements.blockSize.value = String(nextValue);
+  elements.blockSize.disabled = !hasMinimumVariables;
+  elements.blockSizeOutput.textContent = hasMinimumVariables ? String(nextValue) : "—";
+  elements.blockSizeMaxLabel.textContent = `全変数: ${variableCount}`;
+}
+
 function selectBoardSize(nextSize) {
   boardSize = nextSize;
   selectedRevealed = revealedBySize.get(boardSize);
@@ -190,6 +211,7 @@ function selectBoardSize(nextSize) {
 
 function renderBoard() {
   syncBoardSizeUI();
+  syncBlockSizeUI();
   elements.board.replaceChildren();
   for (let row = 0; row < boardSize; row += 1) {
     for (let col = 0; col < boardSize; col += 1) {
@@ -262,7 +284,9 @@ function initialize(board) {
   syncBoardSizeUI();
   graph = createFactorGraph(boardModel);
   bpState = inferenceMethod === "bp" ? createBPState(graph) : null;
-  gibbsState = inferenceMethod === "gibbs" ? createGibbsState(graph) : null;
+  gibbsState = inferenceMethod === "gibbs"
+    ? createGibbsState(graph, Number(elements.blockSize.value))
+    : null;
   history = [];
   elements.cycleNumber.textContent = "0";
   elements.variableCount.textContent = graph.variables.length;
@@ -270,6 +294,9 @@ function initialize(board) {
   elements.edgeCount.textContent = inferenceMethod === "bp"
     ? graph.edges.length
     : gibbsState.blocks.length;
+  elements.thirdMetricLabel.textContent = inferenceMethod === "bp"
+    ? "edges"
+    : `blocks · |B|=${gibbsState.blockSize}`;
   elements.trace.replaceChildren();
   elements.emptyState.hidden = false;
   if (inferenceMethod === "bp" && graph.edges.length) {
@@ -721,6 +748,12 @@ function beginWithCurrentSetup() {
     elements.modeStatus.classList.add("is-warning");
     return;
   }
+  const variableCount = boardSize ** 2 - selectedRevealed.size;
+  if (inferenceMethod === "gibbs" && variableCount < 2) {
+    elements.modeStatus.textContent = "未開示マスを2つ以上にしてください";
+    elements.modeStatus.classList.add("is-warning");
+    return;
+  }
   elements.modeStatus.classList.remove("is-warning");
   initialize(createBoard({
     size: boardSize,
@@ -745,6 +778,9 @@ elements.sizeInputs.forEach((input) => {
 });
 elements.rho.addEventListener("input", () => {
   elements.rhoOutput.textContent = Number(elements.rho.value).toFixed(2);
+});
+elements.blockSize.addEventListener("input", () => {
+  elements.blockSizeOutput.textContent = elements.blockSize.value;
 });
 elements.katexDetails.addEventListener("change", () => {
   useKatexForDetails = elements.katexDetails.checked;

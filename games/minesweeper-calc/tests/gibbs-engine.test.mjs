@@ -6,7 +6,6 @@ import {
   runGibbsStep,
 } from "../js/gibbs-engine.mjs";
 import {
-  cellKey,
   createExampleBoard,
   createFactorGraph,
 } from "../js/bp-engine.mjs";
@@ -15,12 +14,18 @@ const satisfiesAllClues = (graph, assignment) => graph.factors.every((factor) =>
   factor.variableIds.reduce((sum, id) => sum + assignment[id], 0) === factor.clue
 ));
 
-test("数字制約で連結した変数を1つのブロックにまとめる", () => {
+test("指定したサイズの変数部分集合をブロックとして列挙する", () => {
   const graph = createFactorGraph(createExampleBoard());
-  const blocks = createGibbsBlocks(graph);
-  assert.equal(blocks.length, 1);
-  assert.deepEqual(blocks[0].sourceFactorIds, ["a1", "a2", "a3", "a4"]);
-  assert.deepEqual(blocks[0].variableIds, ["x1", "x2", "x3", "x4", "x5"]);
+  const pairBlocks = createGibbsBlocks(graph, 2);
+  assert.equal(pairBlocks.length, 10);
+  assert.ok(pairBlocks.every((block) => block.variableIds.length === 2));
+  assert.deepEqual(pairBlocks[0].variableIds, ["x1", "x2"]);
+  assert.deepEqual(pairBlocks.at(-1).variableIds, ["x4", "x5"]);
+
+  const fullBlock = createGibbsBlocks(graph, graph.variables.length);
+  assert.equal(fullBlock.length, 1);
+  assert.deepEqual(fullBlock[0].sourceFactorIds, ["a1", "a2", "a3", "a4"]);
+  assert.deepEqual(fullBlock[0].variableIds, ["x1", "x2", "x3", "x4", "x5"]);
 });
 
 test("初期状態はすべての数字制約を満たす", () => {
@@ -66,9 +71,12 @@ test("ステップごとに複数ブロックを巡回し経験周辺確率を�
     revealed: new Set(),
     mines: new Set(),
   });
-  let state = createGibbsState(graph);
-  assert.equal(state.blocks.length, 4);
+  let state = createGibbsState(graph, 2);
+  assert.equal(state.blockSize, 2);
+  assert.equal(state.blocks.length, 6);
   const first = runGibbsStep(graph, state, () => 0);
+  assert.equal(first.trace.block.variableIds.length, 2);
+  assert.equal(first.trace.candidates.length, 4);
   state = first.state;
   const second = runGibbsStep(graph, state, () => 0);
   state = second.state;
@@ -80,23 +88,21 @@ test("ステップごとに複数ブロックを巡回し経験周辺確率を�
   }
 });
 
-test("因子に接続しない変数も単独ブロックとして更新できる", () => {
-  const graph = createFactorGraph({
-    size: 2,
-    rho: 0.25,
-    revealed: new Set([cellKey(0, 0)]),
-    mines: new Set(),
-  });
-  const isolated = graph.variables.find((variable) => variable.factorIds.length === 0);
-  assert.equal(isolated, undefined);
-
+test("因子に接続しない変数も指定サイズのブロックで更新できる", () => {
   const noFactors = createFactorGraph({
     size: 2,
     rho: 0.25,
     revealed: new Set(),
     mines: new Set(),
   });
-  const blocks = createGibbsBlocks(noFactors);
-  assert.equal(blocks.length, 4);
-  assert.ok(blocks.every((block) => block.variableIds.length === 1));
+  const blocks = createGibbsBlocks(noFactors, 2);
+  assert.equal(blocks.length, 6);
+  assert.ok(blocks.every((block) => block.variableIds.length === 2));
+  assert.ok(blocks.every((block) => block.sourceFactorIds.length === 0));
+});
+
+test("ブロックサイズは2から全変数までに制限する", () => {
+  const graph = createFactorGraph(createExampleBoard());
+  assert.throws(() => createGibbsBlocks(graph, 1), RangeError);
+  assert.throws(() => createGibbsBlocks(graph, graph.variables.length + 1), RangeError);
 });
