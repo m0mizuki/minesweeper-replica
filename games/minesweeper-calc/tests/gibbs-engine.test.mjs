@@ -71,7 +71,8 @@ test("ステップごとに複数ブロックを巡回し経験周辺確率を�
     revealed: new Set(),
     mines: new Set(),
   });
-  let state = createGibbsState(graph, 2);
+  const noShuffle = () => 1 - Number.EPSILON;
+  let state = createGibbsState(graph, 2, noShuffle);
   assert.equal(state.blockSize, 2);
   assert.equal(state.blocks.length, 6);
   const first = runGibbsStep(graph, state, () => 0);
@@ -82,10 +83,36 @@ test("ステップごとに複数ブロックを巡回し経験周辺確率を�
   state = second.state;
   assert.equal(first.trace.block.id, "B1");
   assert.equal(second.trace.block.id, "B2");
+  assert.equal(state.lastBlockIndex, second.trace.blockIndex);
   assert.equal(state.sampleCount, 2);
   for (const values of Object.values(state.marginals)) {
     assert.ok(Math.abs(values[0] + values[1] - 1) < 1e-12);
   }
+});
+
+test("全ブロックをスイープごとにランダムな順番で1回ずつ更新する", () => {
+  const graph = createFactorGraph({
+    size: 2,
+    rho: 0.25,
+    revealed: new Set(),
+    mines: new Set(),
+  });
+  let state = createGibbsState(graph, 2, () => 0);
+  const identityOrder = state.blocks.map((_, index) => index);
+  const firstSweepOrder = [...state.blockOrder];
+  assert.notDeepEqual(firstSweepOrder, identityOrder);
+  assert.deepEqual([...firstSweepOrder].sort((a, b) => a - b), identityOrder);
+
+  const visited = [];
+  for (let index = 0; index < state.blocks.length; index += 1) {
+    const result = runGibbsStep(graph, state, () => 0);
+    visited.push(result.trace.blockIndex);
+    state = result.state;
+  }
+  assert.deepEqual(visited, firstSweepOrder);
+  assert.equal(new Set(visited).size, state.blocks.length);
+  assert.equal(state.blockCursor, 0);
+  assert.deepEqual([...state.blockOrder].sort((a, b) => a - b), identityOrder);
 });
 
 test("因子に接続しない変数も指定サイズのブロックで更新できる", () => {

@@ -42,6 +42,19 @@ function combinations(values, size, start = 0, prefix = [], result = []) {
   return result;
 }
 
+function randomUnitInterval(random) {
+  return Math.min(Math.max(Number(random()), 0), 1 - Number.EPSILON);
+}
+
+function shuffledBlockOrder(length, random) {
+  const order = Array.from({ length }, (_, index) => index);
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(randomUnitInterval(random) * (index + 1));
+    [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
+  }
+  return order;
+}
+
 export function createGibbsBlocks(graph, blockSize = graph.variables.length) {
   const variableIds = graph.variables.map(({ id }) => id);
   if (variableIds.length === 0) return [];
@@ -67,7 +80,7 @@ function empiricalMarginals(graph, assignment, mineCounts, sampleCount) {
   }));
 }
 
-export function createGibbsState(graph, blockSize = graph.variables.length) {
+export function createGibbsState(graph, blockSize = graph.variables.length, random = Math.random) {
   const blocks = createGibbsBlocks(graph, blockSize);
   const assignment = createInitialAssignment(graph);
   const mineCounts = Object.fromEntries(graph.variables.map(({ id }) => [id, 0]));
@@ -75,6 +88,9 @@ export function createGibbsState(graph, blockSize = graph.variables.length) {
     step: 0,
     blockSize,
     blocks,
+    blockOrder: shuffledBlockOrder(blocks.length, random),
+    blockCursor: 0,
+    lastBlockIndex: null,
     assignment,
     sampleCount: 0,
     mineCounts,
@@ -84,7 +100,7 @@ export function createGibbsState(graph, blockSize = graph.variables.length) {
 
 export function runGibbsStep(graph, state, random = Math.random) {
   if (state.blocks.length === 0) throw new Error("更新できるブロックがありません。");
-  const blockIndex = state.step % state.blocks.length;
+  const blockIndex = state.blockOrder[state.blockCursor];
   const block = state.blocks[blockIndex];
   const affectedFactors = graph.factors.filter((factor) => (
     factor.variableIds.some((variableId) => block.variableIds.includes(variableId))
@@ -125,7 +141,7 @@ export function runGibbsStep(graph, state, random = Math.random) {
     candidate.interval = [lower, cumulative];
   });
 
-  const randomValue = Math.min(Math.max(Number(random()), 0), 1 - Number.EPSILON);
+  const randomValue = randomUnitInterval(random);
   let selectedIndex = candidates.findIndex((candidate) => randomValue < candidate.interval[1]);
   if (selectedIndex < 0) selectedIndex = candidates.length - 1;
   const selected = candidates[selectedIndex];
@@ -139,12 +155,21 @@ export function runGibbsStep(graph, state, random = Math.random) {
     mineCounts[variable.id] += assignment[variable.id];
   });
   const sampleCount = state.sampleCount + 1;
+  let blockCursor = state.blockCursor + 1;
+  let blockOrder = [...state.blockOrder];
+  if (blockCursor >= state.blocks.length) {
+    blockOrder = shuffledBlockOrder(state.blocks.length, random);
+    blockCursor = 0;
+  }
   const nextState = {
     ...state,
     step: state.step + 1,
     assignment,
     sampleCount,
     mineCounts,
+    blockOrder,
+    blockCursor,
+    lastBlockIndex: blockIndex,
     marginals: empiricalMarginals(graph, assignment, mineCounts, sampleCount),
   };
 
@@ -153,6 +178,7 @@ export function runGibbsStep(graph, state, random = Math.random) {
     trace: {
       step: nextState.step,
       blockIndex,
+      blockPosition: state.blockCursor + 1,
       block: { ...block, variableIds: [...block.variableIds], sourceFactorIds: [...block.sourceFactorIds] },
       beforeAssignment: cloneAssignment(state.assignment),
       afterAssignment: cloneAssignment(assignment),

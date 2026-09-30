@@ -215,9 +215,8 @@ function displayedGibbsBlock() {
   if (mode !== "running" || inferenceMethod !== "gibbs" || !gibbsState?.blocks.length) {
     return null;
   }
-  const blockIndex = gibbsState.step === 0
-    ? 0
-    : (gibbsState.step - 1) % gibbsState.blocks.length;
+  const blockIndex = gibbsState.lastBlockIndex
+    ?? gibbsState.blockOrder[gibbsState.blockCursor];
   return gibbsState.blocks[blockIndex];
 }
 
@@ -338,8 +337,8 @@ function initialize(board) {
   } else if (inferenceMethod === "gibbs" && gibbsState.blocks.length) {
     setEmptyState(
       "制約を満たす初期配置を作りました",
-      `${gibbsState.blocks.length} 個のブロックを順番に更新します。最初の更新対象は`,
-      gibbsState.blocks[0].id,
+      `${gibbsState.blocks.length} 個のブロックをランダムな順番で更新します。最初の更新対象は`,
+      gibbsState.blocks[gibbsState.blockOrder[0]].id,
     );
   } else {
     setEmptyState(
