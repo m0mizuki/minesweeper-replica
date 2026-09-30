@@ -56,7 +56,7 @@ let boardModel = null;
 let graph = null;
 let bpState = null;
 let history = [];
-let useKatexForDetails = false;
+let useKatexForDetails = true;
 const traceByElement = new WeakMap();
 
 const formatNumber = (value) => {
