@@ -6,6 +6,11 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 
 現在は Milestone 7 まで実装しています。
 
+資料生成用のローカル作業フォルダ（`.codex-*`、`.chart-data-*`）は
+`build/presentations/` にまとめています。既存の生成スクリプトは
+`build/presentations/.codex-pptx-build/build_deck.mjs` にあり、最終成果物は
+引き続き `outputs/` に出力します。`build/` 以下は Git 管理対象外です。
+
 - 各セルを独立な Bernoulli(`rho`) で生成（総地雷数は固定しない）
 - ground truth と独立に観測プロトコルを適用
 - Moore 近傍（最大8セル）の clue を生成
