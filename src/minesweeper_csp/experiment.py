@@ -23,6 +23,13 @@ from .io import (
     write_json_atomic,
     write_npz_atomic,
 )
+from .model import (
+    INFERENCE_MODEL,
+    OVERLAP_CONVENTION,
+    RUN_SCHEMA_VERSION,
+    validate_model_options,
+    validate_run_model,
+)
 from .mcmc import (
     MCMCConfig,
     MCMCMultipleResult,
@@ -58,6 +65,7 @@ class SweepExperimentConfig:
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "SweepExperimentConfig":
         try:
+            validate_model_options(data)
             model = data["model"]
             observation = data["observation"]
             sweep = data["sweep"]
@@ -135,9 +143,8 @@ class SweepExperimentConfig:
 
     def to_mapping(self) -> dict[str, Any]:
         return {
-            "inference": {
-                "target_distribution": "uniform_feasible_assignments",
-            },
+            "inference": dict(INFERENCE_MODEL),
+            "overlap": dict(OVERLAP_CONVENTION),
             "model": {"Lx": self.Lx, "Ly": self.Ly},
             "observation": {
                 "protocol": self.observation_protocol,
@@ -432,7 +439,9 @@ def run_disorder_sample(
     )
     summary_path = run_directory / "run.json"
     if summary_path.exists() and not overwrite:
-        return read_json(summary_path)
+        record = read_json(summary_path)
+        validate_run_model(record)
+        return record
 
     seed_instance = derive_seed(
         config.base_seed, rho_index, disorder_index, "instance"
@@ -553,7 +562,7 @@ def run_disorder_sample(
     for chain, source in zip(mcmc_summary["chains"], initial_sources):
         chain["initialization"] = source
     summary: dict[str, Any] = {
-        "schema_version": 2,
+        "schema_version": RUN_SCHEMA_VERSION,
         "run_id": f"rho-{rho_index:03d}-sample-{disorder_index:04d}",
         "model": {
             "Lx": config.Lx,
@@ -561,10 +570,7 @@ def run_disorder_sample(
             "N": config.Lx * config.Ly,
             "rho": rho,
         },
-        "inference": {
-            "target_distribution": "uniform_feasible_assignments",
-            "rho_used_as_inference_prior": False,
-        },
+        "inference": dict(INFERENCE_MODEL),
         "observation": {
             "protocol": config.observation_protocol,
             "observation_rate": config.observation_rate,
@@ -582,6 +588,7 @@ def run_disorder_sample(
         "mcmc": mcmc_summary,
         "comparison": comparisons,
         "overlap": {
+            **OVERLAP_CONVENTION,
             "exact_planted_mean": (
                 exact.planted_overlap.mean
                 if exact is not None and exact.planted_overlap is not None

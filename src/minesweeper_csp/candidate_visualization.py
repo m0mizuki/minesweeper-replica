@@ -149,7 +149,7 @@ def _distribution_panel(
     maximum = max(maximum * 1.08, 0.05)
 
     def sx(value: float) -> float:
-        return px + (value + 1.0) * pw / 2.0
+        return px + value * pw
 
     def sy(value: float) -> float:
         return py + ph - value / maximum * ph
@@ -169,7 +169,7 @@ def _distribution_panel(
             f'<text x="{px - 7:.1f}" y="{position + 4:.1f}" text-anchor="end" '
             f'font-size="11" fill="#475569">{value:.2g}</text>'
         )
-    for value in (-1.0, -0.5, 0.0, 0.5, 1.0):
+    for value in (0.0, 0.25, 0.5, 0.75, 1.0):
         position = sx(value)
         chunks.append(
             f'<line x1="{position:.1f}" x2="{position:.1f}" y1="{py + ph:.1f}" '
@@ -179,7 +179,7 @@ def _distribution_panel(
         )
     chunks.append(
         f'<text x="{px + pw / 2:.1f}" y="{y + height - 7:.1f}" text-anchor="middle" '
-        'font-size="12">replica overlap q</text>'
+        'font-size="12">replica overlap q (matching fraction)</text>'
         f'<text x="{x + 13:.1f}" y="{py + ph / 2:.1f}" text-anchor="middle" '
         f'font-size="12" transform="rotate(-90 {x + 13:.1f} {py + ph / 2:.1f})">P(q)</text>'
     )

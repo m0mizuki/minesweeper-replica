@@ -52,6 +52,12 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 配置重みには使いません。したがって、同じ factor graph なら推論結果は `rho` に
 依存せず、制約のない変数の周辺確率は 0.5 です。
 
+添付の「スライド草稿.md」に合わせ、overlap は未開示変数上の一致率
+`q = mean(x_i == x'_i)`（0〜1）を使います。Exact・MCMC の planted/replica
+overlap、集計、図示はすべて同じ定義です。未知変数が0個の場合は `q=1` とします。
+照合結果と保存形式の変更は
+[`docs/SLIDE_MODEL_ALIGNMENT.md`](docs/SLIDE_MODEL_ALIGNMENT.md) にまとめています。
+
 ```python
 from minesweeper_csp import (
     BPConfig,
@@ -135,6 +141,10 @@ python scripts/run_sweep.py configs/sweeps/rho_small.json --output results/rho_s
 かかわらず禁止されます。既存runを同一configで明示的に再計算する場合だけ
 `--overwrite`を指定してください。
 
+現行の `run.json` は schema version 3 で、推論測度と overlap の定義を記録します。
+旧モデル・旧 overlap の結果は再利用・集計・理論解析時に拒否します。
+旧結果を残し、新しい出力先（例：`results/rho_smoke_matching_fraction`）で再計算してください。
+
 各runには次を保存します。
 
 - `run.json`: 条件、全seed、solver設定、収束・mixing診断、比較指標、metadata
@@ -212,10 +222,10 @@ random-graph surrogateや1RSBへ進む条件は
 ```powershell
 python scripts/run_candidate_study.py `
   configs/studies/rsb_candidate_rho_010_050_n20.json `
-  --output results/rsb_candidate_rho_010_050_n20
+  --output results/rsb_candidate_rho_010_050_n20_matching_fraction
 
 python scripts/analyze_rs_theory.py `
-  results/rsb_candidate_rho_010_050_n20 `
+  results/rsb_candidate_rho_010_050_n20_matching_fraction `
   --max-edges 256
 ```
 

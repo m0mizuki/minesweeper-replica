@@ -153,6 +153,7 @@ class CandidateAnalysisTests(unittest.TestCase):
             theory = analyze_rs_candidate_directory(output)
 
             self.assertEqual(len(analysis["sizes"]), 2)
+            self.assertEqual(analysis["overlap"]["definition"], "matching_fraction")
             self.assertTrue((output / "candidate_analysis.json").exists())
             self.assertEqual(len(theory["sizes"]), 2)
             self.assertTrue((output / "rs_theory_analysis.json").exists())
@@ -166,6 +167,11 @@ class CandidateAnalysisTests(unittest.TestCase):
                 for point in size["points"]:
                     probabilities = point["mcmc_overlap"]["probabilities"]
                     self.assertAlmostEqual(sum(probabilities), 1.0)
+                    self.assertTrue(all(
+                        0.0 <= q <= 1.0
+                        for q in point["mcmc_overlap"]["bin_centers"]
+                    ))
+                    self.assertAlmostEqual(sum(point["exact_overlap"]["probabilities"]), 1.0)
                     self.assertIn("mode_count", point["mcmc_overlap"]["shape"])
 
 

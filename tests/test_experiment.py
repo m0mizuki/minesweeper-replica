@@ -5,13 +5,14 @@ import unittest
 
 import numpy as np
 
-from minesweeper_csp.aggregate import aggregate_directory, summarize_samples
+from minesweeper_csp.aggregate import aggregate_directory, aggregate_records, summarize_samples
 from minesweeper_csp.experiment import (
     SweepExperimentConfig,
     derive_seed,
     execute_sweep,
 )
-from minesweeper_csp.io import read_json
+from minesweeper_csp.io import read_json, write_json_atomic
+from minesweeper_csp.theory import analyze_rs_run
 from minesweeper_csp.visualization import write_phase_scan_svg
 
 
@@ -84,12 +85,14 @@ class ExperimentTests(unittest.TestCase):
                 record = json.loads(
                     raw_json, parse_constant=lambda value: self.fail(value)
                 )
-                self.assertEqual(record["schema_version"], 2)
+                self.assertEqual(record["schema_version"], 3)
                 self.assertEqual(
                     record["inference"]["target_distribution"],
                     "uniform_feasible_assignments",
                 )
                 self.assertFalse(record["inference"]["rho_used_as_inference_prior"])
+                self.assertFalse(record["inference"]["fixed_total_mines"])
+                self.assertEqual(record["overlap"]["definition"], "matching_fraction")
 
     def test_aggregate_contains_disorder_statistics_and_svg(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -134,6 +137,43 @@ class ExperimentTests(unittest.TestCase):
                 execute_sweep(changed, directory)
             with self.assertRaises(ValueError):
                 execute_sweep(changed, directory, overwrite=True)
+
+    def test_explicitly_different_models_are_rejected(self) -> None:
+        for section, key, value in (
+            ("inference", "target_distribution", "bernoulli_posterior"),
+            ("inference", "rho_used_as_inference_prior", True),
+            ("inference", "fixed_total_mines", True),
+            ("overlap", "definition", "spin_overlap"),
+        ):
+            with self.subTest(key=key):
+                mapping = tiny_config().to_mapping()
+                mapping[section][key] = value
+                with self.assertRaisesRegex(ValueError, "unsupported"):
+                    SweepExperimentConfig.from_mapping(mapping)
+
+    def test_legacy_results_cannot_be_resumed_aggregated_or_replayed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            execute_sweep(tiny_config(), directory)
+            run_path = next(Path(directory).glob("rho_*/sample_*/run.json"))
+            legacy = read_json(run_path)
+            legacy["schema_version"] = 2
+            for key in ("definition", "variable_set", "empty_value"):
+                legacy["overlap"].pop(key)
+            write_json_atomic(run_path, legacy)
+
+            with self.assertRaisesRegex(ValueError, "incompatible CSP or overlap"):
+                execute_sweep(tiny_config(), directory)
+            with self.assertRaisesRegex(ValueError, "incompatible CSP or overlap"):
+                aggregate_directory(directory)
+            with self.assertRaisesRegex(ValueError, "incompatible CSP or overlap"):
+                analyze_rs_run(run_path)
+
+    def test_aggregation_rejects_mixed_overlap_definitions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            records = execute_sweep(tiny_config(), directory)
+            records[-1]["overlap"]["definition"] = "spin_overlap"
+            with self.assertRaisesRegex(ValueError, "incompatible CSP or overlap"):
+                aggregate_records(records)
 
 
 if __name__ == "__main__":

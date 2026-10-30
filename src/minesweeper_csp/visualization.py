@@ -223,7 +223,7 @@ def write_phase_scan_svg(aggregate: dict[str, Any], path: str | Path) -> Path:
                 ("MCMC replica", _series(aggregate, "mcmc_replica_overlap")),
                 ("Exact replica", _series(aggregate, "exact_replica_overlap")),
             ],
-            (-1.0, 1.0),
+            (0.0, 1.0),
         ),
     ]
     svg = (

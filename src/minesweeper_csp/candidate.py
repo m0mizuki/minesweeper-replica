@@ -12,6 +12,7 @@ import numpy as np
 from .aggregate import aggregate_directory, summarize_samples
 from .experiment import SweepExperimentConfig, derive_seed, execute_sweep
 from .io import read_json, utc_timestamp, write_json_atomic
+from .model import INFERENCE_MODEL, OVERLAP_CONVENTION
 
 
 SCORE_COMPONENTS: dict[str, tuple[str, bool]] = {
@@ -426,7 +427,7 @@ def analyze_candidate_directory(
     bins = int(overlap_bins if overlap_bins is not None else plan["overlap_bins"])
     if bins < 3:
         raise ValueError("overlap_bins must be at least three")
-    edges = np.linspace(-1.0, 1.0, bins + 1)
+    edges = np.linspace(0.0, 1.0, bins + 1)
     sizes = []
     for sweep in plan["sweeps"]:
         size_output = output / sweep["name"]
@@ -452,7 +453,9 @@ def analyze_candidate_directory(
             }
         )
     analysis = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "inference": dict(INFERENCE_MODEL),
+        "overlap": dict(OVERLAP_CONVENTION),
         "generated_at_utc": utc_timestamp(),
         "selection": plan["selection"],
         "overlap_bins": bins,

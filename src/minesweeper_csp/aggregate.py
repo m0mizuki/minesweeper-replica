@@ -10,6 +10,7 @@ from typing import Any, Iterable
 import numpy as np
 
 from .io import read_json, utc_timestamp, write_json_atomic
+from .model import INFERENCE_MODEL, OVERLAP_CONVENTION, validate_run_model
 
 
 METRIC_PATHS: dict[str, tuple[str, ...]] = {
@@ -83,6 +84,7 @@ def aggregate_records(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
     grouped: dict[float, list[dict[str, Any]]] = defaultdict(list)
     all_records = list(records)
     for record in all_records:
+        validate_run_model(record)
         grouped[float(record["model"]["rho"])].append(record)
 
     parameter_points = []
@@ -113,7 +115,9 @@ def aggregate_records(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
             }
         )
     return {
-        "schema_version": 1,
+        "schema_version": 2,
+        "inference": dict(INFERENCE_MODEL),
+        "overlap": dict(OVERLAP_CONVENTION),
         "run_count": len(all_records),
         "generated_at_utc": utc_timestamp(),
         "parameter_points": parameter_points,

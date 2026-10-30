@@ -27,7 +27,10 @@ def _frozen_copy(values: NDArray) -> NDArray:
 
 @dataclass(frozen=True)
 class OverlapDistribution:
-    """A normalized discrete overlap distribution."""
+    """Distribution of q = mean(1[x_i == x'_i]) over unobserved cells.
+
+    The overlap of two empty assignments is defined as one.
+    """
 
     values: FloatVector
     probabilities: FloatVector
@@ -39,8 +42,8 @@ class OverlapDistribution:
             raise ValueError("overlap values and probabilities must be one-dimensional")
         if values.shape != probabilities.shape or values.size == 0:
             raise ValueError("overlap values and probabilities must have equal nonzero length")
-        if not np.all(np.isfinite(values)) or np.any((values < -1.0) | (values > 1.0)):
-            raise ValueError("overlap values must be finite and lie in [-1, 1]")
+        if not np.all(np.isfinite(values)) or np.any((values < 0.0) | (values > 1.0)):
+            raise ValueError("overlap values must be finite and lie in [0, 1]")
         if not np.all(np.isfinite(probabilities)) or np.any(probabilities < 0.0):
             raise ValueError("overlap probabilities must be finite and nonnegative")
         if not np.isclose(float(probabilities.sum()), 1.0, rtol=1e-12, atol=1e-14):
@@ -187,7 +190,7 @@ def _overlap_grid(number_of_variables: int) -> FloatVector:
     if number_of_variables == 0:
         return np.array([1.0], dtype=np.float64)
     distances = np.arange(number_of_variables + 1, dtype=np.float64)
-    return 1.0 - 2.0 * distances / number_of_variables
+    return 1.0 - distances / number_of_variables
 
 
 def _planted_overlap_distribution(

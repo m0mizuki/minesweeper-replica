@@ -284,10 +284,11 @@ def _sample_block_conditional(
 
 
 def _overlap_trace(samples: BoolMatrix, planted: BoolVector) -> FloatVector:
+    """Fraction of unobserved cells agreeing with the planted assignment."""
     if samples.shape[1] == 0:
         return np.ones(samples.shape[0], dtype=np.float64)
     distances = np.count_nonzero(samples != planted[None, :], axis=1)
-    return 1.0 - 2.0 * distances / samples.shape[1]
+    return 1.0 - distances / samples.shape[1]
 
 
 def run_blocked_gibbs(
@@ -453,7 +454,7 @@ def run_blocked_gibbs_chains(
                     != right.retained_samples[:sample_count],
                     axis=1,
                 )
-                overlaps = 1.0 - 2.0 * distances / graph.number_of_variables
+                overlaps = 1.0 - distances / graph.number_of_variables
             replica_traces.append(overlaps)
 
     return MCMCMultipleResult(

@@ -1,4 +1,14 @@
 {
+  "inference": {
+    "target_distribution": "uniform_feasible_assignments",
+    "rho_used_as_inference_prior": false,
+    "fixed_total_mines": false
+  },
+  "overlap": {
+    "definition": "matching_fraction",
+    "variable_set": "unobserved_cells",
+    "empty_value": 1.0
+  },
   "model": {
     "Lx": 4,
     "Ly": 4

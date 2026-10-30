@@ -21,6 +21,7 @@ from .bp import (
 )
 from .factor_graph import FactorGraph, build_factor_graph
 from .io import read_json, utc_timestamp, write_json_atomic
+from .model import validate_run_model
 
 FloatMatrix = NDArray[np.float64]
 
@@ -348,6 +349,7 @@ def analyze_rs_run(
 
     run_path = Path(run_path)
     record = read_json(run_path)
+    validate_run_model(record)
     primary_index = int(record["bp"]["primary_run"])
     primary = record["bp"]["runs"][primary_index]
     with np.load(run_path.parent / record["files"]["arrays"]) as arrays:

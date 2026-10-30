@@ -314,25 +314,15 @@ $$
 
 ### planted configuration との overlap
 
-spin 表現
-
-$$
-s_i = 2x_i-1,
-\qquad
-s_i^0=2x_i^0-1
-$$
-
-を用いて
-
 $$
 q_0
 =
 \frac{1}{N}
 \sum_i
-s_i s_i^0
+\delta(x_i,x_i^0)
 $$
 
-を定義する。
+を定義する。$N$ は未開示変数数であり、$q_0$ は真の配置との一致率である。
 
 ### replica overlap
 
@@ -343,10 +333,16 @@ q_{12}
 =
 \frac{1}{N}
 \sum_i
-s_i^{(1)}s_i^{(2)}
+\delta(x_i^{(1)},x_i^{(2)})
 $$
 
 を計算する。
+
+添付スライドの定義に合わせ、どちらも $0\le q\le1$ とする。
+未知変数が0個の場合は、空配置同士の一致として $q=1$ を返す。
+旧実装のスピン overlap $q_{\mathrm{spin}}$ とは
+$q=(q_{\mathrm{spin}}+1)/2$ の関係にあり、平均値・分散・分布幅を混同しない。
+保存形式と再計算については [`SLIDE_MODEL_ALIGNMENT.md`](SLIDE_MODEL_ALIGNMENT.md) を参照。
 
 特に
 

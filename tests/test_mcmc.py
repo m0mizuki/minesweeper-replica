@@ -63,6 +63,10 @@ class MCMCTests(unittest.TestCase):
         self.assertIsNone(result.acceptance_rate)
         self.assertEqual(result.chain_length, 5_200)
         self.assertEqual(result.planted_overlap_trace.shape, (5_000,))
+        np.testing.assert_allclose(
+            result.planted_overlap_trace,
+            (result.retained_samples == [True, False]).mean(axis=1),
+        )
         np.testing.assert_array_equal(result.retained_samples.sum(axis=1), 1)
 
     def test_single_site_chain_exposes_nonergodicity(self) -> None:
@@ -96,7 +100,7 @@ class MCMCTests(unittest.TestCase):
 
         self.assertEqual(multiple.max_pairwise_marginal_difference, 1.0)
         self.assertTrue(np.isinf(multiple.r_hat).all())
-        self.assertEqual(set(multiple.replica_overlap_trace), {-1.0})
+        self.assertEqual(set(multiple.replica_overlap_trace), {0.0})
 
     def test_independent_blocked_chains_have_replica_trace(self) -> None:
         graph, truth = one_of_two_graph()
@@ -111,7 +115,12 @@ class MCMCTests(unittest.TestCase):
         )
 
         self.assertEqual(multiple.replica_overlap_trace.shape, (2_000,))
-        self.assertLess(abs(multiple.replica_overlap_mean), 0.08)
+        self.assertLess(abs(multiple.replica_overlap_mean - 0.5), 0.04)
+        np.testing.assert_allclose(
+            multiple.replica_overlap_trace,
+            (multiple.chains[0].retained_samples
+             == multiple.chains[1].retained_samples).mean(axis=1),
+        )
         self.assertLess(multiple.max_pairwise_marginal_difference, 0.08)
 
     def test_seed_reproduces_chain(self) -> None:

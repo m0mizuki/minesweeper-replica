@@ -5,6 +5,7 @@ import numpy as np
 
 from minesweeper_csp import (
     ExactEnumerationLimitError,
+    OverlapDistribution,
     build_factor_graph,
     enumerate_feasible_states,
     generate_clues,
@@ -30,7 +31,7 @@ class ExactSolverTests(unittest.TestCase):
         self.assertAlmostEqual(result.log_partition_function, math.log(4.0))
         np.testing.assert_allclose(result.marginals, [0.5, 0.5])
         np.testing.assert_allclose(
-            result.planted_overlap.values, [1.0, 0.0, -1.0]
+            result.planted_overlap.values, [1.0, 0.5, 0.0]
         )
         np.testing.assert_allclose(
             result.planted_overlap.probabilities, [0.25, 0.5, 0.25]
@@ -39,7 +40,7 @@ class ExactSolverTests(unittest.TestCase):
             result.replica_overlap.probabilities,
             [0.25, 0.5, 0.25],
         )
-        self.assertAlmostEqual(result.replica_overlap.mean, 0.0)
+        self.assertAlmostEqual(result.replica_overlap.mean, 0.5)
 
     def test_equality_constraint_enumerates_only_feasible_states(self) -> None:
         truth = np.array([[True, False, False]], dtype=np.bool_)
@@ -145,6 +146,10 @@ class ExactSolverTests(unittest.TestCase):
             result.marginals[0] = 0.0
         with self.assertRaises(ValueError):
             result.feasible_states[0, 0] = True
+
+    def test_spin_overlap_values_are_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            OverlapDistribution(np.array([-1.0, 1.0]), np.array([0.5, 0.5]))
 
 
 if __name__ == "__main__":

@@ -20,6 +20,10 @@ $$
 $\rho$ は planted instance の生成密度であり、この推論測度の外部パラメータではない。
 同じ観測 factor graph に対する Exact・BP・MCMC の重みは $\rho$ に依存しない。
 
+overlap はスライドと同じく、未開示変数上の一致率
+$q=N^{-1}\sum_i\delta(x_i^{(1)},x_i^{(2)})\in[0,1]$ とする。
+旧スピン定義や Bernoulli 事前分布の保存結果は、現行の理論診断では受け付けない。
+
 ここでは観測集合 $A$ を quenched design として固定し、その生成確率を posterior likelihood に含めない。現行の `bernoulli_safe` は ground truth が安全なセルだけを観測するため、$A$ 自体が ground truth と相関する。従って「観測 mask も含めた完全な Bayes posterior」を扱うなら測度を再定義する必要がある。現行測度のまま Nishimori identity を仮定してはならない。
 
 熱力学極限を議論する場合は、少なくとも次を固定する必要がある。
