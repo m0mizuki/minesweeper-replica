@@ -71,10 +71,15 @@ test("1ステップで候補を列挙・正規化し乱数区間から選択す�
   assert.notDeepEqual(state.assignment, initial.assignment);
   trace.candidates.forEach((candidate) => {
     const deltaProduct = candidate.factorChecks.every(({ satisfied }) => satisfied) ? 1 : 0;
+    assert.equal(candidate.constraintWeight, deltaProduct);
+    const priorWeight = graph.rho ** candidate.mineCount
+      * (1 - graph.rho) ** (trace.block.variableIds.length - candidate.mineCount);
+    assert.ok(Math.abs(candidate.priorWeight - priorWeight) < 1e-12);
     const expected = deltaProduct * graph.rho ** candidate.mineCount
       * (1 - graph.rho) ** (trace.block.variableIds.length - candidate.mineCount);
     assert.ok(Math.abs(candidate.rawWeight - expected) < 1e-12);
   });
+  assert.equal(trace.rho, graph.rho);
   assert.ok(Math.abs(trace.normalization - 4 / 81) < 1e-12);
   const probabilitySum = trace.candidates.reduce((sum, candidate) => sum + candidate.probability, 0);
   assert.ok(Math.abs(probabilitySum - 1) < 1e-12);

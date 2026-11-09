@@ -125,14 +125,17 @@ export function runGibbsStep(graph, state, random = Math.random) {
       return { factorId: factor.id, sum, clue: factor.clue, satisfied: sum === factor.clue };
     });
     const valid = factorChecks.every(({ satisfied }) => satisfied);
+    const priorLogWeight = logPriorWeight(bits, graph.rho);
     return {
       bits,
       values: Object.fromEntries(block.variableIds.map((id, index) => [id, bits[index]])),
       factorChecks,
       valid,
       mineCount: bits.reduce((sum, bit) => sum + bit, 0),
-      logWeight: valid ? logPriorWeight(bits, graph.rho) : -Infinity,
-      rawWeight: valid ? Math.exp(logPriorWeight(bits, graph.rho)) : 0,
+      priorWeight: Math.exp(priorLogWeight),
+      constraintWeight: valid ? 1 : 0,
+      logWeight: valid ? priorLogWeight : -Infinity,
+      rawWeight: valid ? Math.exp(priorLogWeight) : 0,
       probability: 0,
       interval: [0, 0],
     };
@@ -193,6 +196,7 @@ export function runGibbsStep(graph, state, random = Math.random) {
     state: nextState,
     trace: {
       step: nextState.step,
+      rho: graph.rho,
       blockIndex,
       blockPosition: state.blockCursor + 1,
       block: { ...block, variableIds: [...block.variableIds], sourceFactorIds: [...block.sourceFactorIds] },

@@ -103,6 +103,7 @@
 
         <div class="run-panel" id="run-panel" hidden>
           <div class="run-summary">
+            <span id="active-rho"></span>
             <span><b id="variable-count">0</b> variables</span>
             <span><b id="factor-count">0</b> factors</span>
             <span><b id="edge-count">0</b> <i id="third-metric-label">edges</i></span>
@@ -117,6 +118,9 @@
         </div>
 
         <aside class="model-note" id="model-note">
+          <strong>共通の事後分布</strong>
+          <p class="posterior-formula math-inline" data-latex="P(\mathbf{x}\mid\mathbf{c})=\frac{1}{Z_\rho}\prod_i P_0(x_i)\prod_a\delta\!\left(\sum_{i\in\partial a}x_i,c_a\right)"></p>
+          <p class="prior-formula math-inline" data-latex="P_0(x_i)=\rho^{x_i}(1-\rho)^{1-x_i}"></p>
           <strong id="model-note-title">地雷密度の扱い</strong>
           <p id="model-note-copy"><span class="math-inline" data-latex="\rho"></span> は盤面生成と事前分布に使用します。変数→因子の初期メッセージは <span class="math-inline" data-latex="[1-\rho,\,\rho]"></span> です。</p>
           <div class="block-size-note" id="block-size-note" hidden>

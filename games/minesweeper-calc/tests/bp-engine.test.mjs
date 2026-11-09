@@ -32,6 +32,30 @@ test("変数→因子の初期値は事前分布、因子→変数は中立と�
   }
 });
 
+test("周辺確率のトレースは事前因子を1回掛けた値を正規化する", () => {
+  const graph = createFactorGraph({
+    size: 2, rho: 0.25,
+    revealed: new Set([cellKey(0, 0)]),
+    mines: new Set([cellKey(1, 1)]),
+  });
+  const { state, trace } = runCycle(graph, createBPState(graph));
+  assert.equal(trace.rho, 0.25);
+  assert.equal(trace.marginalCalculations.length, 3);
+  for (const calculation of trace.marginalCalculations) {
+    const [zero, one] = calculation.rows;
+    approximately(zero.prior, 0.75);
+    approximately(one.prior, 0.25);
+    assert.equal(zero.terms.length, 1);
+    approximately(zero.terms[0].value, 0.4);
+    approximately(one.terms[0].value, 0.6);
+    approximately(zero.raw, 0.3);
+    approximately(one.raw, 0.15);
+    approximately(calculation.normalization, 0.45);
+    approximately(calculation.normalized[1], 1 / 3);
+    assert.deepEqual(calculation.normalized, state.marginals[calculation.variableId]);
+  }
+});
+
 test("資料例の盤面から4因子・5変数・12辺を構成する", () => {
   const graph = createFactorGraph(createExampleBoard());
   assert.equal(graph.variables.length, 5);

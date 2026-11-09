@@ -127,15 +127,34 @@ function product(values) {
   return values.reduce((result, value) => result * value, 1);
 }
 
+export function computeMarginalCalculations(graph, factorToVariable) {
+  return graph.variables.map((variable) => {
+    const rows = [0, 1].map((value) => {
+      const prior = value ? graph.rho : 1 - graph.rho;
+      const terms = variable.factorIds.map((factorId) => ({
+        from: factorId,
+        to: variable.id,
+        argument: value,
+        value: factorToVariable[edgeKey(variable.id, factorId)][value],
+      }));
+      return { value, prior, terms, raw: prior * product(terms.map((term) => term.value)) };
+    });
+    const raw = rows.map((row) => row.raw);
+    const normalized = normalize(raw);
+    return {
+      variableId: variable.id,
+      rows,
+      raw,
+      normalized,
+      normalization: raw[0] + raw[1],
+      impossible: normalized[0] === 0 && normalized[1] === 0,
+    };
+  });
+}
+
 export function computeMarginals(graph, factorToVariable) {
-  const marginals = {};
-  for (const variable of graph.variables) {
-    const raw = [0, 1].map((value) => (value ? graph.rho : 1 - graph.rho) * product(
-      variable.factorIds.map((factorId) => factorToVariable[edgeKey(variable.id, factorId)][value]),
-    ));
-    marginals[variable.id] = normalize(raw);
-  }
-  return marginals;
+  return Object.fromEntries(computeMarginalCalculations(graph, factorToVariable)
+    .map(({ variableId, normalized }) => [variableId, normalized]));
 }
 
 function updateVariableMessages(graph, previousFactorToVariable) {
@@ -233,22 +252,27 @@ function updateFactorMessages(graph, variableToFactor) {
 export function runCycle(graph, state) {
   const variablePhase = updateVariableMessages(graph, state.factorToVariable);
   const factorPhase = updateFactorMessages(graph, variablePhase.messages);
+  const marginalCalculations = computeMarginalCalculations(graph, factorPhase.messages);
   const nextState = {
     cycle: state.cycle + 1,
     variableToFactor: cloneMessageMap(variablePhase.messages),
     factorToVariable: cloneMessageMap(factorPhase.messages),
-    marginals: computeMarginals(graph, factorPhase.messages),
+    marginals: Object.fromEntries(marginalCalculations
+      .map(({ variableId, normalized }) => [variableId, normalized])),
   };
   return {
     state: nextState,
     trace: {
       cycle: nextState.cycle,
+      rho: graph.rho,
       variableCalculations: variablePhase.calculations,
       factorCalculations: factorPhase.calculations,
+      marginalCalculations,
       marginals: cloneMessageMap(nextState.marginals),
       hasContradiction: [
         ...variablePhase.calculations,
         ...factorPhase.calculations,
+        ...marginalCalculations,
       ].some((calculation) => calculation.impossible),
     },
   };

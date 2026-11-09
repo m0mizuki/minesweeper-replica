@@ -50,6 +50,7 @@ const elements = {
   factorCount: document.querySelector("#factor-count"),
   edgeCount: document.querySelector("#edge-count"),
   thirdMetricLabel: document.querySelector("#third-metric-label"),
+  activeRho: document.querySelector("#active-rho"),
   blockLegend: document.querySelector("#block-legend"),
   blockLegendLabel: document.querySelector("#block-legend-label"),
   modelNoteTitle: document.querySelector("#model-note-title"),
@@ -149,17 +150,12 @@ function updateMethodCopy() {
       mathSpan("\\rho", "math-inline"),
       " は盤面生成と推論の事前分布に使用します。変数→因子の初期値は ",
       mathSpan("[1-\\rho,\\,\\rho]", "math-inline"),
-      " です。",
+      "、因子→変数は [0.5, 0.5] です。変数更新と周辺確率には、事前因子を1回ずつ掛けます。",
     );
   } else {
     elements.modelNoteCopy.append(
       mathSpan("\\rho", "math-inline"),
-      " は盤面生成と事前分布に使用します。目的分布は ",
-      mathSpan(
-        "P(\\mathbf{x}\\mid\\mathbf{c})=\\frac{1}{Z_\\rho}\\prod_i\\rho^{x_i}(1-\\rho)^{1-x_i}\\prod_a\\delta\\!\\left(\\sum_{i\\in\\partial a}x_i,c_a\\right)",
-        "math-inline",
-      ),
-      "、有効な候補を事前分布の重みでサンプリングします。",
+      " は盤面生成と事前分布に使用します。候補ごとに「事前重み × 制約」を計算し、正規化した条件付き確率でサンプリングします。",
     );
   }
   syncBlockSizeUI();
@@ -259,7 +255,7 @@ function renderBoard() {
           cell.setAttribute("aria-label", `開示マス ${modelCell.id}、数字 ${modelCell.clue}`);
         } else {
           const activeState = inferenceMethod === "bp" ? bpState : gibbsState;
-          const marginal = activeState.marginals[modelCell.id] ?? [0.5, 0.5];
+          const marginal = activeState.marginals[modelCell.id] ?? [1 - graph.rho, graph.rho];
           const mineProbability = marginal[1];
           cell.classList.add("variable-cell");
           const currentValue = inferenceMethod === "gibbs"
@@ -316,6 +312,7 @@ function initialize(board) {
   revealedBySize.set(boardSize, selectedRevealed);
   syncBoardSizeUI();
   graph = createFactorGraph(boardModel);
+  renderLatex(elements.activeRho, `\\rho=${graph.rho === 1 / 3 ? "1/3" : formatNumber(graph.rho)}`);
   bpState = inferenceMethod === "bp" ? createBPState(graph) : null;
   gibbsState = inferenceMethod === "gibbs"
     ? createGibbsState(graph, Number(elements.blockSize.value))
@@ -333,7 +330,11 @@ function initialize(board) {
   elements.trace.replaceChildren();
   elements.emptyState.hidden = false;
   if (inferenceMethod === "bp" && graph.edges.length) {
-    setEmptyState("初期メッセージを設定しました", "変数→因子は [1−ρ, ρ]、因子→変数は [0.5, 0.5] です。", "\\rho=" + formatNumber(graph.rho));
+    setEmptyState(
+      "事前分布で初期化しました",
+      "因子→変数は [0.5, 0.5] です。変数→因子と初期周辺確率は",
+      `[1-\\rho,\\,\\rho]=${vectorLatex([1 - graph.rho, graph.rho])}`,
+    );
   } else if (inferenceMethod === "gibbs" && gibbsState.blocks.length) {
     setEmptyState(
       "制約を満たす初期配置を作りました",
@@ -355,9 +356,11 @@ function initialize(board) {
   setMode("running");
 }
 
-function renderVariableCalculation(calculation) {
+function renderVariableCalculation(calculation, isMarginal = false) {
   const card = elements.template.content.firstElementChild.cloneNode(true);
-  renderDetailLatex(card.querySelector(".message-name"), messageToLatex(calculation.from, calculation.to));
+  const probabilityName = (value) => `b_{${idToLatex(calculation.variableId)}}${value === undefined ? "" : `(${value})`}`;
+  const name = isMarginal ? probabilityName() : messageToLatex(calculation.from, calculation.to);
+  renderDetailLatex(card.querySelector(".message-name"), name);
   renderDetailLatex(card.querySelector(".message-vector"), vectorLatex(calculation.normalized));
   const body = card.querySelector(".calculation-lines");
 
@@ -367,8 +370,8 @@ function renderVariableCalculation(calculation) {
       ? joinProductLatex(row.terms.map((term) => messageValueToLatex(term, term.value, formatNumber)))
       : "1\\;\\text{（空積）}";
     line.append(
-      detailMathSpan(messageToLatex(calculation.from, calculation.to, row.value), "formula-key"),
-      detailMathSpan(`\\propto ${formatNumber(row.prior)}\\cdot ${expression}`),
+      detailMathSpan(isMarginal ? probabilityName(row.value) : messageToLatex(calculation.from, calculation.to, row.value), "formula-key"),
+      detailMathSpan(`\\propto \\underbrace{${formatNumber(row.prior)}}_{P_0(${row.value})}\\cdot ${expression}`),
       detailMathSpan(`=${formatNumber(row.raw)}`, "result-value"),
     );
     body.append(line);
@@ -454,7 +457,7 @@ function createPhase(title, formula, calculations, kind) {
   const headingLabel = document.createElement("div");
   const chip = document.createElement("span");
   chip.className = "phase-chip";
-  chip.textContent = kind === "variable" ? "STEP 1" : "STEP 2";
+  chip.textContent = kind === "variable" ? "STEP 1" : kind === "marginal" ? "STEP 3" : "STEP 2";
   const headingTitle = document.createElement("h4");
   headingTitle.textContent = title;
   const formulaElement = document.createElement("code");
@@ -465,9 +468,9 @@ function createPhase(title, formula, calculations, kind) {
   const grid = document.createElement("div");
   grid.className = "message-grid";
   calculations.forEach((calculation) => {
-    grid.append(kind === "variable"
-      ? renderVariableCalculation(calculation)
-      : renderFactorCalculation(calculation));
+    grid.append(kind === "factor"
+      ? renderFactorCalculation(calculation)
+      : renderVariableCalculation(calculation, kind === "marginal"));
   });
   section.append(grid);
   return section;
@@ -487,6 +490,12 @@ function createCycleContent(trace) {
     "m_{a\\to i}(x_i)\\propto\\sum_{\\mathbf{x}_{\\partial a\\setminus i}}\\delta\\!\\left(x_i+\\sum_{j\\in\\partial a\\setminus i}x_j,c_a\\right)\\prod_{j\\in\\partial a\\setminus i}m_{j\\to a}(x_j)",
     trace.factorCalculations,
     "factor",
+  ));
+  content.append(createPhase(
+    "周辺確率（事前分布 × 全入力メッセージ）",
+    "b_i(x_i)\\propto\\rho^{x_i}(1-\\rho)^{1-x_i}\\prod_{a\\in\\partial i}m_{a\\to i}(x_i)",
+    trace.marginalCalculations,
+    "marginal",
   ));
 
   const marginal = document.createElement("section");
@@ -609,21 +618,26 @@ function createGibbsStepContent(trace) {
     } else {
       checks.textContent = "このブロックに接続する数字制約はありません";
     }
+    const prior = document.createElement("p");
+    prior.append(document.createTextNode("事前重み "), detailMathSpan(
+      `P_0(\\mathbf{x}_B)=\\rho^{${candidate.mineCount}}(1-\\rho)^{${trace.block.variableIds.length - candidate.mineCount}}=${formatNumber(candidate.priorWeight)}`,
+    ));
     const weight = document.createElement("p");
+    weight.append(document.createTextNode("事前 × 制約 "));
     weight.append(
       detailMathSpan(
-        `w=\\rho^{${candidate.mineCount}}(1-\\rho)^{${trace.block.variableIds.length - candidate.mineCount}}\\prod_{a:\\,\\partial a\\cap B\\ne\\emptyset}\\delta_a=${formatNumber(candidate.rawWeight)}`,
+        `w=${formatNumber(candidate.priorWeight)}\\times ${candidate.constraintWeight}=${formatNumber(candidate.rawWeight)}`,
       ),
     );
     const probability = document.createElement("p");
     probability.className = "candidate-probability";
     probability.append(
-      detailMathSpan(`P=${formatNumber(candidate.probability)}`),
+      detailMathSpan(`P=\\frac{w}{Z_B}=${formatNumber(candidate.probability)}`),
       detailMathSpan(
         `I=[${formatNumber(candidate.interval[0])},\\;${formatNumber(candidate.interval[1])})`,
       ),
     );
-    body.append(checks, weight, probability);
+    body.append(checks, prior, weight, probability);
     card.append(header, body);
     candidateGrid.append(card);
   });
