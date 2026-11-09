@@ -6,7 +6,7 @@ import {
   createFactorGraph,
   createBPState,
   runCycle,
-} from "../js/bp-engine.mjs";
+} from "../js/bp-engine.js";
 
 const approximately = (actual, expected, epsilon = 1e-10) => {
   assert.ok(Math.abs(actual - expected) < epsilon, `${actual} ≈ ${expected}`);

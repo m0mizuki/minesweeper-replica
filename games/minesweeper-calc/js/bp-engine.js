@@ -1,3 +1,4 @@
+// Browser modules use .js so Windows static servers return a JavaScript MIME type.
 const OFFSETS = [
   [-1, -1], [-1, 0], [-1, 1],
   [0, -1],             [0, 1],

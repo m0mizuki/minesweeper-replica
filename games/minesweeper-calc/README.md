@@ -25,15 +25,21 @@ ES Modules を使用しているため、`index.html` を直接開くのでは�
 
 ```powershell
 node --test games/minesweeper-calc/tests/*.test.mjs
+python -m unittest discover -s games/minesweeper-calc/tests -p "test_*.py"
 ```
 
 ## 構成
 
-- `js/bp-engine.mjs`: 盤面、因子グラフ、BP更新、計算トレースを扱う独立モジュール
-- `js/gibbs-engine.mjs`: ブロック構築、条件付き分布、Gibbs更新、計算トレースを扱う独立モジュール
-- `js/app.mjs`: 画面状態と描画
-- `js/math-renderer.mjs`: KaTeXによるLaTeX数式描画とフォールバック
+- `js/bp-engine.js`: 盤面、因子グラフ、BP更新、計算トレースを扱う独立モジュール
+- `js/gibbs-engine.js`: ブロック構築、条件付き分布、Gibbs更新、計算トレースを扱う独立モジュール
+- `js/app.js`: 画面状態と描画
+- `js/math-renderer.js`: KaTeXによるLaTeX数式描画とフォールバック
 - `styles.css`: 盤面・計算トレースの表示
+
+ブラウザ用モジュールは `.js` に統一しています。Windows の MIME 登録により
+Python の標準 HTTP サーバーが `.mjs` を `text/plain` として配信すると、
+ブラウザが起動スクリプトを拒否し、盤面もボタンも動かなくなるためです。
+Node.js でのテストでは `package.json` の `"type": "module"` により同じコードを使います。
 
 数式表示には [KaTeX](https://katex.org/) 0.18.9 をCDN経由で使用します。CDNを読み込めない場合はLaTeXソース表示へフォールバックします。
 
@@ -44,3 +50,8 @@ blocked Gibbs sampling の目的分布は、BP と同じく Bernoulli(`ρ`) 事�
 BP の変数→因子の初期値は `[1−ρ, ρ]`、因子→変数は `[0.5, 0.5]` です。変数更新と周辺確率の計算では、入力メッセージの積に Bernoulli 事前因子を1回掛けます。
 
 計算画面には共通の事後分布と実行中のρを表示します。BP の各サイクルでは、変数→因子、因子→変数、周辺確率の3段階を追跡でき、事前因子・入力メッセージ・正規化前の重み・規格化定数・確率を確認できます。Gibbs の各候補には、制約を判定した結果、事前重み、事前重み×制約、正規化した条件付き確率、採択区間を表示します。
+
+BP は damping なしで更新するため、ループのある盤面では振動・非収束が起こり得ます。
+正規化に失敗した場合は追加の更新を止めます。これは盤面に解がないという判定ではありません。
+事後分布の変更と実装の切り分け、独立の参照計算、Exact との比較は
+[BP_CONVERGENCE_DIAGNOSIS.md](BP_CONVERGENCE_DIAGNOSIS.md) を参照してください。

@@ -4,11 +4,11 @@ import {
   createGibbsBlocks,
   createGibbsState,
   runGibbsStep,
-} from "../js/gibbs-engine.mjs";
+} from "../js/gibbs-engine.js";
 import {
   createExampleBoard,
   createFactorGraph,
-} from "../js/bp-engine.mjs";
+} from "../js/bp-engine.js";
 
 const satisfiesAllClues = (graph, assignment) => graph.factors.every((factor) => (
   factor.variableIds.reduce((sum, id) => sum + assignment[id], 0) === factor.clue

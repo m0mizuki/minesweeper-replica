@@ -5,11 +5,11 @@ import {
   createFactorGraph,
   createBPState,
   runCycle,
-} from "./bp-engine.mjs";
+} from "./bp-engine.js";
 import {
   createGibbsState,
   runGibbsStep,
-} from "./gibbs-engine.mjs";
+} from "./gibbs-engine.js";
 import {
   idToLatex,
   joinProductLatex,
@@ -20,7 +20,7 @@ import {
   renderStaticLatex,
   vectorToLatex,
   waitForMathRenderer,
-} from "./math-renderer.mjs";
+} from "./math-renderer.js";
 
 await waitForMathRenderer();
 
@@ -257,6 +257,7 @@ function renderBoard() {
           const activeState = inferenceMethod === "bp" ? bpState : gibbsState;
           const marginal = activeState.marginals[modelCell.id] ?? [1 - graph.rho, graph.rho];
           const mineProbability = marginal[1];
+          const unavailable = inferenceMethod === "bp" && marginal.every((value) => value === 0);
           cell.classList.add("variable-cell");
           const currentValue = inferenceMethod === "gibbs"
             ? gibbsState.assignment[modelCell.id]
@@ -269,7 +270,9 @@ function renderBoard() {
           renderLatex(label, idToLatex(modelCell.id));
           let probability;
           if (inferenceMethod === "bp") {
-            probability = mathSpan(`P(${idToLatex(modelCell.id)}=1)=${formatNumber(mineProbability)}`);
+            probability = mathSpan(unavailable
+              ? "\\text{正規化失敗}"
+              : `P(${idToLatex(modelCell.id)}=1)=${formatNumber(mineProbability)}`);
           } else {
             probability = document.createElement("span");
             probability.className = "gibbs-cell-value";
@@ -295,7 +298,9 @@ function renderBoard() {
           cell.setAttribute(
             "aria-label",
             inferenceMethod === "bp"
-              ? `未開示マス ${modelCell.id}、地雷確率 ${formatNumber(mineProbability)}`
+              ? unavailable
+                ? `未開示マス ${modelCell.id}、正規化失敗のため地雷確率は計算できません`
+                : `未開示マス ${modelCell.id}、地雷確率 ${formatNumber(mineProbability)}`
               : `未開示マス ${modelCell.id}、現在値 ${currentValue}、経験地雷確率 ${formatNumber(mineProbability)}${isBlockMember ? `、現在のブロック ${activeBlock.id}` : ""}`,
           );
         }
@@ -306,6 +311,7 @@ function renderBoard() {
 }
 
 function initialize(board) {
+  elements.modeStatus.classList.remove("is-warning");
   boardModel = board;
   boardSize = board.size;
   selectedRevealed = new Set(board.revealed);
@@ -361,7 +367,8 @@ function renderVariableCalculation(calculation, isMarginal = false) {
   const probabilityName = (value) => `b_{${idToLatex(calculation.variableId)}}${value === undefined ? "" : `(${value})`}`;
   const name = isMarginal ? probabilityName() : messageToLatex(calculation.from, calculation.to);
   renderDetailLatex(card.querySelector(".message-name"), name);
-  renderDetailLatex(card.querySelector(".message-vector"), vectorLatex(calculation.normalized));
+  renderDetailLatex(card.querySelector(".message-vector"), calculation.impossible
+    ? "\\text{正規化失敗}" : vectorLatex(calculation.normalized));
   const body = card.querySelector(".calculation-lines");
 
   calculation.rows.forEach((row) => {
@@ -383,7 +390,8 @@ function renderVariableCalculation(calculation, isMarginal = false) {
 function renderFactorCalculation(calculation) {
   const card = elements.template.content.firstElementChild.cloneNode(true);
   renderDetailLatex(card.querySelector(".message-name"), messageToLatex(calculation.from, calculation.to));
-  renderDetailLatex(card.querySelector(".message-vector"), vectorLatex(calculation.normalized));
+  renderDetailLatex(card.querySelector(".message-vector"), calculation.impossible
+    ? "\\text{正規化失敗}" : vectorLatex(calculation.normalized));
   const body = card.querySelector(".calculation-lines");
 
   const constraint = document.createElement("p");
@@ -443,10 +451,16 @@ function appendNormalization(body, calculation) {
   renderDetailLatex(
     result,
     calculation.impossible
-      ? "Z=0\\quad\\text{— この局所制約は矛盾しています}"
+      ? "Z=0\\quad\\text{— 更新メッセージを正規化できません}"
       : `Z=${formatNumber(calculation.normalization)}\\quad\\Longrightarrow\\quad ${vectorLatex(calculation.normalized)}`,
   );
   body.append(result);
+  if (calculation.impossible) {
+    const explanation = document.createElement("p");
+    explanation.className = "no-assignment";
+    explanation.textContent = "BP の振動やアンダーフローでも発生するため、盤面に解がないとは限りません。";
+    body.append(explanation);
+  }
 }
 
 function createPhase(title, formula, calculations, kind) {
@@ -512,7 +526,9 @@ function createCycleContent(trace) {
   values.className = "marginal-values";
   graph.variables.forEach((variable) => {
     const item = document.createElement("span");
-    renderDetailLatex(item, `${idToLatex(variable.id)}:\\;${vectorLatex(trace.marginals[variable.id])}`);
+    const probabilities = trace.marginals[variable.id];
+    renderDetailLatex(item, `${idToLatex(variable.id)}:\\;${probabilities.every((p) => p === 0)
+      ? "\\text{正規化失敗}" : vectorLatex(probabilities)}`);
     values.append(item);
   });
   marginal.append(values);
@@ -738,7 +754,7 @@ function renderBPTrace(trace) {
   traceByElement.set(details, { method: "bp", trace });
 
   const summary = document.createElement("summary");
-  summary.innerHTML = `<span>Cycle ${trace.cycle}</span><span>${trace.variableCalculations.length + trace.factorCalculations.length} messages${trace.hasContradiction ? " · 矛盾あり" : ""}</span>`;
+  summary.innerHTML = `<span>Cycle ${trace.cycle}</span><span>${trace.variableCalculations.length + trace.factorCalculations.length} messages${trace.hasContradiction ? " · 正規化失敗" : ""}</span>`;
   details.append(summary);
 
   details.addEventListener("toggle", () => {
@@ -786,6 +802,11 @@ function advance() {
   );
   updateExpandButtonLabel();
   renderBoard();
+  if (inferenceMethod === "bp" && result.trace.hasContradiction) {
+    elements.nextButton.disabled = true;
+    elements.modeStatus.textContent = "BP 正規化失敗（解なしとは限りません）";
+    elements.modeStatus.classList.add("is-warning");
+  }
 }
 
 function beginWithCurrentSetup() {

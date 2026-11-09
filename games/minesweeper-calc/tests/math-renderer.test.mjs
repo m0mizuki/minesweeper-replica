@@ -6,7 +6,7 @@ import {
   messageToLatex,
   messageValueToLatex,
   vectorToLatex,
-} from "../js/math-renderer.mjs";
+} from "../js/math-renderer.js";
 
 test("変数・因子ラベルをLaTeXの添字へ変換する", () => {
   assert.equal(idToLatex("x12"), "x_{12}");

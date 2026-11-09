@@ -1,3 +1,4 @@
+// ES module semantics are shared by browsers and this directory's package.json.
 function enumerateBits(length) {
   const assignments = [];
   for (let mask = 0; mask < 2 ** length; mask += 1) {
