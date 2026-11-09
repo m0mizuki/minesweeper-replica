@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from .exact import ExactResult
 from .factor_graph import FactorGraph
 
-BPInitialization = Literal["uniform", "random"]
+BPInitialization = Literal["prior", "uniform", "random"]
 BPStatus = Literal["converged", "max_iterations", "infeasible"]
 FloatMatrix = NDArray[np.float64]
 FloatVector = NDArray[np.float64]
@@ -35,7 +35,7 @@ class BPConfig:
     max_iterations: int = 1_000
     tolerance: float = 1e-10
     damping: float = 0.0
-    initialization: BPInitialization = "uniform"
+    initialization: BPInitialization = "prior"
     seed: int | None = None
 
     def __post_init__(self) -> None:
@@ -57,7 +57,7 @@ class BPConfig:
             raise TypeError("damping must be a real number")
         if not math.isfinite(float(self.damping)) or not 0.0 <= self.damping < 1.0:
             raise ValueError("damping must lie in [0, 1)")
-        if self.initialization not in ("uniform", "random"):
+        if self.initialization not in ("prior", "uniform", "random"):
             raise ValueError(f"unknown BP initialization: {self.initialization!r}")
 
 
@@ -222,7 +222,10 @@ def _damp(new: FloatVector, old: FloatVector, damping: float) -> FloatVector:
 def _initialize_variable_messages(
     number_of_edges: int,
     config: BPConfig,
+    rho: float,
 ) -> FloatMatrix:
+    if config.initialization == "prior":
+        return np.tile([1.0 - rho, rho], (number_of_edges, 1))
     if config.initialization == "uniform":
         return np.full((number_of_edges, 2), 0.5, dtype=np.float64)
     rng = np.random.default_rng(config.seed)
@@ -265,8 +268,9 @@ def _variable_message(
     variable: int,
     layout: _EdgeLayout,
     factor_to_variable: FloatMatrix,
+    prior_logs: FloatVector,
 ) -> FloatVector | None:
-    log_values = np.zeros(2, dtype=np.float64)
+    log_values = prior_logs.copy()
     for edge in layout.variable_edges[variable]:
         if edge != target_edge:
             log_values += _log_probabilities(factor_to_variable[edge])
@@ -277,10 +281,11 @@ def _compute_marginals(
     graph: FactorGraph,
     layout: _EdgeLayout,
     factor_to_variable: FloatMatrix,
+    prior_logs: FloatVector,
 ) -> FloatVector | None:
     marginals = np.empty(graph.number_of_variables, dtype=np.float64)
     for variable, edges in enumerate(layout.variable_edges):
-        log_values = np.zeros(2, dtype=np.float64)
+        log_values = prior_logs.copy()
         for edge in edges:
             log_values += _log_probabilities(factor_to_variable[edge])
         probabilities = _normalize_logs(log_values)
@@ -328,10 +333,7 @@ def run_bp(
     *,
     config: BPConfig | None = None,
 ) -> BPResult:
-    """Run sum-product BP for the uniform measure on feasible assignments.
-
-    ``rho`` is planted-instance metadata and does not enter the BP updates.
-    """
+    """Run sum-product BP with a Bernoulli(rho) prior and hard clues."""
 
     if isinstance(rho, bool) or not isinstance(rho, (int, float, np.number)):
         raise TypeError("rho must be a real number")
@@ -344,10 +346,28 @@ def run_bp(
 
     layout = _build_edge_layout(graph)
     variable_to_factor = _initialize_variable_messages(
-        len(layout.edge_factors), config
+        len(layout.edge_factors), config, rho
     )
     factor_to_variable = np.full_like(variable_to_factor, 0.5)
     residual_history: list[float] = []
+    prior_logs = _log_probabilities(np.array([1.0 - rho, rho]))
+
+    # At an endpoint the prior supports exactly one assignment. Check it
+    # directly, regardless of damping or diagnostic initialization mode.
+    if rho in (0.0, 1.0):
+        supported = all(
+            clue == int(rho) * len(variables)
+            for clue, variables in zip(graph.clue_values, graph.factor_to_variables)
+        )
+        variable_to_factor[:] = [1.0 - rho, rho]
+        if supported:
+            factor_to_variable[:] = [1.0 - rho, rho]
+        return _make_result(
+            graph, config, rho, "converged" if supported else "infeasible", 0,
+            residual_history, variable_to_factor, factor_to_variable, layout,
+            np.full(graph.number_of_variables, rho) if supported else None,
+            None if supported else "constraints have zero Bernoulli prior mass",
+        )
 
     for factor, edges in enumerate(layout.factor_edges):
         clue = graph.clue_values[factor]
@@ -367,7 +387,7 @@ def run_bp(
             )
 
     if not layout.edge_factors:
-        marginals = np.full(graph.number_of_variables, 0.5, dtype=np.float64)
+        marginals = np.full(graph.number_of_variables, rho, dtype=np.float64)
         return _make_result(
             graph,
             config,
@@ -416,6 +436,7 @@ def run_bp(
                 variable,
                 layout,
                 updated_factor_to_variable,
+                prior_logs,
             )
             if message is None:
                 return _make_result(
@@ -444,7 +465,7 @@ def run_bp(
         variable_to_factor = updated_variable_to_factor
 
         if delta < config.tolerance:
-            marginals = _compute_marginals(graph, layout, factor_to_variable)
+            marginals = _compute_marginals(graph, layout, factor_to_variable, prior_logs)
             if marginals is None:
                 return _make_result(
                     graph,
@@ -472,7 +493,7 @@ def run_bp(
                 marginals,
             )
 
-    marginals = _compute_marginals(graph, layout, factor_to_variable)
+    marginals = _compute_marginals(graph, layout, factor_to_variable, prior_logs)
     status: BPStatus = "max_iterations" if marginals is not None else "infeasible"
     return _make_result(
         graph,
@@ -507,6 +528,8 @@ def compare_bp_to_exact(bp: BPResult, exact: ExactResult) -> BPMarginalCompariso
 
     if not exact.has_posterior_mass:
         raise ValueError("exact posterior has zero mass")
+    if bp.rho != exact.rho:
+        raise ValueError("BP and exact results must use the same rho prior")
     if bp.marginals.shape != exact.marginals.shape:
         raise ValueError("BP and exact results have different numbers of variables")
     if not np.all(np.isfinite(bp.marginals)):

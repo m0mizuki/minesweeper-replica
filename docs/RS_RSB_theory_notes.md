@@ -8,21 +8,22 @@
 
 ## 1. 解析対象となる測度
 
-コードが比較する target distribution は、観測 clue の hard constraint を満たす配置上の一様分布である。
+コードが比較する target distribution は、Bernoulli($\rho$) 事前分布を観測 clue の hard constraint で条件付けした分布である。
 
 $$
 P(\boldsymbol{x}\mid\boldsymbol{y},A)
-=\frac{1}{Z}
+=\frac{1}{Z_\rho}
+\prod_i \rho^{x_i}(1-\rho)^{1-x_i}
 \prod_{a\in A}\mathbf 1\!\left(\sum_{i\in\partial a}x_i=y_a\right)
 .
 $$
 
-$\rho$ は planted instance の生成密度であり、この推論測度の外部パラメータではない。
-同じ観測 factor graph に対する Exact・BP・MCMC の重みは $\rho$ に依存しない。
+$\rho$ は planted instance の生成密度と推論事前分布の両方に使う。
+同じ観測 factor graph でも Exact・BP・MCMC の重みは $\rho$ に依存する。
 
 overlap はスライドと同じく、未開示変数上の一致率
 $q=N^{-1}\sum_i\delta(x_i^{(1)},x_i^{(2)})\in[0,1]$ とする。
-旧スピン定義や Bernoulli 事前分布の保存結果は、現行の理論診断では受け付けない。
+旧スピン定義や一様測度など schema version 4 より前の保存結果は、現行の理論診断では受け付けない。
 
 ここでは観測集合 $A$ を quenched design として固定し、その生成確率を posterior likelihood に含めない。現行の `bernoulli_safe` は ground truth が安全なセルだけを観測するため、$A$ 自体が ground truth と相関する。従って「観測 mask も含めた完全な Bayes posterior」を扱うなら測度を再定義する必要がある。現行測度のまま Nishimori identity を仮定してはならない。
 
@@ -42,10 +43,10 @@ $$
 =\sum_i\log Z_i+\sum_a\log Z_a-\sum_{(i,a)}\log Z_{ia}
 $$
 
-を計算する。hard constraint 上では許容状態の factor energy は0なので、Bethe entropy は
+を計算する。変数規格化定数には事前因子を含める。hard constraint 上の対数因子は0だが、事前分布の寄与があるため Bethe entropy は
 
 $$
-H_{\mathrm B}=\log Z_{\mathrm B}
+H_{\mathrm B}=\log Z_{\mathrm B}-\sum_i\left[b_i(1)\log\rho+b_i(0)\log(1-\rho)\right]
 $$
 
 となる。tree factor graph では Exact と一致する。loopy graph では差

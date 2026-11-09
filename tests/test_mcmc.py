@@ -31,7 +31,26 @@ def unconstrained_graph(shape: tuple[int, int]):
 
 
 class MCMCTests(unittest.TestCase):
-    def test_unconstrained_chain_samples_uniform_measure(self) -> None:
+    def test_endpoint_chains_stay_in_prior_support(self) -> None:
+        graph = unconstrained_graph((1, 2))
+        for rho in (0.0, 1.0):
+            with self.subTest(rho=rho):
+                initial = np.full(2, bool(rho))
+                result = run_blocked_gibbs(
+                    graph, rho, initial,
+                    config=MCMCConfig(burn_in=0, samples=10, seed=5),
+                )
+                np.testing.assert_allclose(result.marginals, initial)
+
+    def test_comparison_rejects_different_priors(self) -> None:
+        graph, truth = one_of_two_graph()
+        result = run_blocked_gibbs(
+            graph, 0.2, truth, config=MCMCConfig(burn_in=0, samples=2),
+        )
+        with self.assertRaisesRegex(ValueError, "same rho"):
+            compare_mcmc_to_exact(result, solve_exact(graph, 0.3))
+
+    def test_unconstrained_chain_samples_bernoulli_prior(self) -> None:
         graph = unconstrained_graph((1, 2))
         initial = np.array([False, False], dtype=np.bool_)
         exact = solve_exact(graph, 0.23)
@@ -139,13 +158,11 @@ class MCMCTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             run_blocked_gibbs(graph, 0.3, np.array([True]))
 
-        boundary = run_blocked_gibbs(
-            graph,
-            0.0,
-            truth,
-            config=MCMCConfig(block_size=2, burn_in=0, samples=2, seed=1),
-        )
-        self.assertEqual(boundary.rho, 0.0)
+        with self.assertRaisesRegex(ValueError, "zero Bernoulli prior mass"):
+            run_blocked_gibbs(
+                graph, 0.0, truth,
+                config=MCMCConfig(block_size=2, burn_in=0, samples=2, seed=1),
+            )
 
     def test_diagnostics_handle_correlation_and_constant_chains(self) -> None:
         alternating = np.tile([0.0, 1.0], 100)

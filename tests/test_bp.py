@@ -27,12 +27,27 @@ def one_of_two_graph():
 
 
 class BeliefPropagationTests(unittest.TestCase):
-    def test_unconstrained_marginals_are_uniform(self) -> None:
+    def test_default_leaf_messages_start_and_remain_at_prior_with_damping(self) -> None:
+        graph, _ = one_of_two_graph()
+        result = run_bp(graph, 0.17, config=BPConfig(max_iterations=1, damping=0.7))
+        self.assertEqual(result.config.initialization, "prior")
+        np.testing.assert_allclose(result.variable_to_factor_messages, [[0.83, 0.17]] * 2)
+
+    def test_supported_endpoint_matches_exact_with_clues(self) -> None:
+        observed = np.array([[False, True, False]])
+        for rho in (0.0, 1.0):
+            with self.subTest(rho=rho):
+                graph = build_factor_graph(observed, np.array([[-1, int(2*rho), -1]]))
+                result = run_bp(graph, rho, config=BPConfig(initialization="random"))
+                self.assertTrue(result.converged)
+                np.testing.assert_allclose(result.marginals, solve_exact(graph, rho).marginals)
+
+    def test_unconstrained_marginals_equal_prior(self) -> None:
         result = run_bp(unconstrained_graph((2, 2)), 0.23)
 
         self.assertTrue(result.converged)
         self.assertEqual(result.iterations, 0)
-        np.testing.assert_allclose(result.marginals, np.full(4, 0.5))
+        np.testing.assert_allclose(result.marginals, np.full(4, 0.23))
 
     def test_tree_factor_matches_exact_marginals(self) -> None:
         graph, truth = one_of_two_graph()
@@ -109,12 +124,12 @@ class BeliefPropagationTests(unittest.TestCase):
         self.assertTrue(np.isnan(result.marginals).all())
         self.assertIn("exceeds factor degree", result.failure_reason)
 
-    def test_rho_boundary_does_not_change_bp_target(self) -> None:
+    def test_rho_boundary_detects_zero_posterior_mass(self) -> None:
         graph, _ = one_of_two_graph()
         result = run_bp(graph, 0.0)
 
-        self.assertEqual(result.status, "converged")
-        np.testing.assert_allclose(result.marginals, [0.5, 0.5])
+        self.assertEqual(result.status, "infeasible")
+        self.assertTrue(np.isnan(result.marginals).all())
 
     def test_multiple_initializations_reach_same_tree_fixed_point(self) -> None:
         graph, _ = one_of_two_graph()
@@ -140,15 +155,15 @@ class BeliefPropagationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             BPConfig(max_iterations=0)
         with self.assertRaises(ValueError):
-            BPConfig(initialization="prior")
+            BPConfig(initialization="unknown")
 
-    def test_comparison_allows_different_generation_density_metadata(self) -> None:
+    def test_comparison_rejects_different_priors(self) -> None:
         graph, truth = one_of_two_graph()
         exact = solve_exact(graph, 0.2, planted_ground_truth=truth)
         bp = run_bp(graph, 0.3)
 
-        comparison = compare_bp_to_exact(bp, exact)
-        self.assertLess(comparison.max_absolute_error, 1e-12)
+        with self.assertRaisesRegex(ValueError, "same rho"):
+            compare_bp_to_exact(bp, exact)
 
 
 if __name__ == "__main__":

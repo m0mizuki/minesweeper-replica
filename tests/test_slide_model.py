@@ -16,7 +16,7 @@ from minesweeper_csp import (
 
 
 class SlideModelTests(unittest.TestCase):
-    def test_uniform_solutions_without_prior_or_total_mine_constraint(self) -> None:
+    def test_prior_weights_solutions_with_different_mine_counts(self) -> None:
         # The two local clues impose x0+x1=1 and x1+x2=1.
         # The feasible solutions 010 and 101 have different total mine counts.
         truth = np.array([[False, False, True, False, False]])
@@ -24,14 +24,13 @@ class SlideModelTests(unittest.TestCase):
         graph = build_factor_graph(observed, generate_clues(truth, observed))
         bp_config = BPConfig(initialization="random", seed=7, tolerance=1e-12)
         mcmc_config = MCMCConfig(block_size=3, burn_in=100, samples=2_000, seed=8)
-        previous_samples = None
-
-        for rho in (0.0, 0.2, 0.8, 1.0):
+        for rho in (0.2, 0.5, 0.8):
             with self.subTest(rho=rho):
                 exact = solve_exact(graph, rho, planted_ground_truth=truth)
                 self.assertEqual(exact.mine_count_histogram, (0, 1, 1, 0))
-                np.testing.assert_allclose(exact.posterior_probabilities, [0.5, 0.5])
-                np.testing.assert_allclose(exact.marginals, [0.5, 0.5, 0.5])
+                np.testing.assert_allclose(exact.posterior_probabilities, [1-rho, rho])
+                np.testing.assert_allclose(exact.marginals, [rho, 1-rho, rho])
+                self.assertAlmostEqual(exact.partition_function, rho * (1-rho))
 
                 bp = run_bp(graph, rho, config=bp_config)
                 self.assertTrue(bp.converged)
@@ -46,9 +45,6 @@ class SlideModelTests(unittest.TestCase):
                     mcmc.planted_overlap_trace,
                     (mcmc.retained_samples == [False, True, False]).mean(axis=1),
                 )
-                if previous_samples is not None:
-                    np.testing.assert_array_equal(mcmc.retained_samples, previous_samples)
-                previous_samples = mcmc.retained_samples
 
 
 if __name__ == "__main__":

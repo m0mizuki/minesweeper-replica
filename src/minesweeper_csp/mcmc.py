@@ -17,6 +17,7 @@ from .diagnostics import (
 from .exact import ExactResult
 from .factor_graph import FactorGraph, assert_csp_consistent, constraint_residuals
 from .observation import _as_bool_grid
+from .prior import log_prior_weights, normalized_prior_weights
 
 BoolMatrix = NDArray[np.bool_]
 BoolVector = NDArray[np.bool_]
@@ -255,6 +256,7 @@ def _sample_block_conditional(
     state: BoolVector,
     block: tuple[int, ...],
     rng: np.random.Generator,
+    rho: float,
 ) -> BoolVector:
     candidates = _binary_states(len(block))
     feasible = np.ones(candidates.shape[0], dtype=np.bool_)
@@ -279,7 +281,10 @@ def _sample_block_conditional(
     feasible_candidates = candidates[feasible]
     if feasible_candidates.shape[0] == 0:
         raise RuntimeError("blocked conditional has no feasible assignment")
-    selected = int(rng.integers(feasible_candidates.shape[0]))
+    probabilities, log_normalizer = normalized_prior_weights(feasible_candidates, rho)
+    if not math.isfinite(log_normalizer):
+        raise RuntimeError("blocked conditional has zero Bernoulli prior mass")
+    selected = int(rng.choice(feasible_candidates.shape[0], p=probabilities))
     return feasible_candidates[selected]
 
 
@@ -299,9 +304,10 @@ def run_blocked_gibbs(
     config: MCMCConfig | None = None,
     planted_ground_truth: NDArray[np.bool_] | None = None,
 ) -> MCMCResult:
-    """Run blocked Gibbs for the uniform measure on feasible assignments.
+    """Run blocked Gibbs for the Bernoulli-prior constrained posterior.
 
-    ``rho`` is planted-instance metadata and does not enter transition weights.
+    Blocks depend only on graph topology, so selecting them preserves detailed
+    balance. Each feasible block candidate is weighted by its product prior.
     """
 
     if isinstance(rho, bool) or not isinstance(rho, (int, float, np.number)):
@@ -314,6 +320,8 @@ def run_blocked_gibbs(
         raise TypeError("config must be an MCMCConfig")
 
     state = _coerce_assignment(graph, initial_assignment, name="initial_assignment")
+    if not np.isfinite(log_prior_weights(state[None, :], rho)[0]):
+        raise ValueError("initial_assignment has zero Bernoulli prior mass")
     initial = state.copy()
 
     planted = None
@@ -335,7 +343,7 @@ def run_blocked_gibbs(
             block = _choose_local_block(
                 graph.number_of_variables, adjacency, config.block_size, rng
             )
-            updated = _sample_block_conditional(graph, state, block, rng)
+            updated = _sample_block_conditional(graph, state, block, rng, rho)
             if np.any(state[list(block)] != updated):
                 changed_updates += 1
             state[list(block)] = updated
@@ -475,10 +483,14 @@ def compare_mcmc_to_exact(
         raise ValueError("exact posterior has zero mass")
     if isinstance(mcmc, MCMCResult):
         marginals = mcmc.marginals
+        rho = mcmc.rho
     elif isinstance(mcmc, MCMCMultipleResult):
         marginals = mcmc.pooled_marginals
+        rho = mcmc.chains[0].rho
     else:
         raise TypeError("mcmc must be an MCMCResult or MCMCMultipleResult")
+    if rho != exact.rho:
+        raise ValueError("MCMC and exact results must use the same rho prior")
     if marginals.shape != exact.marginals.shape:
         raise ValueError("MCMC and exact results have different numbers of variables")
     differences = marginals - exact.marginals

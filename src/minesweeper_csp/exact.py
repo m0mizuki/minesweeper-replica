@@ -10,6 +10,7 @@ from numpy.typing import NDArray
 
 from .factor_graph import FactorGraph, assert_csp_consistent
 from .observation import _as_bool_grid
+from .prior import normalized_prior_weights
 
 BoolMatrix = NDArray[np.bool_]
 FloatVector = NDArray[np.float64]
@@ -63,12 +64,12 @@ class OverlapDistribution:
 
 @dataclass(frozen=True)
 class ExactResult:
-    """Complete exact result for the uniform measure on feasible assignments.
+    """Complete exact result for the Bernoulli-prior constrained posterior.
 
     ``feasible_states`` has one row per constraint-satisfying assignment and
     follows ``graph.variable_cells`` ordering.  Its corresponding normalized
-    masses are in ``posterior_probabilities``.  ``rho`` records the planted
-    instance's generation density; it does not weight the inference measure.
+    masses are in ``posterior_probabilities``. ``rho`` is the inference prior.
+    Feasible states with zero prior mass remain listed, with zero probability.
     """
 
     rho: float
@@ -175,17 +176,6 @@ def enumerate_feasible_states(
     return result
 
 
-def _normalized_uniform_weights(
-    states: BoolMatrix,
-) -> tuple[FloatVector, float, float]:
-    number_of_states = states.shape[0]
-    if number_of_states == 0:
-        return np.empty(0, dtype=np.float64), 0.0, -math.inf
-    partition = float(number_of_states)
-    probabilities = np.full(number_of_states, 1.0 / partition, dtype=np.float64)
-    return probabilities, partition, math.log(partition)
-
-
 def _overlap_grid(number_of_variables: int) -> FloatVector:
     if number_of_variables == 0:
         return np.array([1.0], dtype=np.float64)
@@ -270,10 +260,9 @@ def solve_exact(
     max_variables: int = 20,
     chunk_size: int = 65_536,
 ) -> ExactResult:
-    """Enumerate the exact uniform distribution over feasible assignments.
+    """Enumerate the exact Bernoulli-prior posterior over feasible assignments.
 
-    ``rho`` is retained as planted-instance metadata and is not used as an
-    inference prior. If the CSP is unsatisfiable, the result reports ``Z=0``;
+    If the constraints have zero prior mass, the result reports ``Z=0``;
     marginals are NaN and overlap distributions are unavailable.
     """
 
@@ -286,7 +275,8 @@ def solve_exact(
     states = enumerate_feasible_states(
         graph, max_variables=max_variables, chunk_size=chunk_size
     )
-    probabilities, partition, log_partition = _normalized_uniform_weights(states)
+    probabilities, log_partition = normalized_prior_weights(states, rho)
+    partition = math.exp(log_partition)
     mine_counts = (
         states.sum(axis=1, dtype=np.int_)
         if states.size

@@ -118,7 +118,7 @@
 
         <aside class="model-note" id="model-note">
           <strong id="model-note-title">地雷密度の扱い</strong>
-          <p id="model-note-copy"><span class="math-inline" data-latex="\rho"></span> は盤面生成のみに使用します。BP の初期メッセージはすべて <span class="math-inline" data-latex="[0.5,\,0.5]"></span> です。</p>
+          <p id="model-note-copy"><span class="math-inline" data-latex="\rho"></span> は盤面生成と事前分布に使用します。変数→因子の初期メッセージは <span class="math-inline" data-latex="[1-\rho,\,\rho]"></span> です。</p>
           <div class="block-size-note" id="block-size-note" hidden>
             <strong>ブロックサイズについて</strong>
             <p>ブロックサイズが小さいと、現在の解から大きく異なる別解への遷移が起こりにくくなります。一方で、ブロックサイズを大きくすると列挙する候補数が指数的に増え、計算量が大きくなります。また、全変数を1つのブロックにすると目的分布から直接サンプリングする形になり、状態間を遷移する Gibbs sampling としての意味は薄くなります。</p>

@@ -147,19 +147,19 @@ function updateMethodCopy() {
   if (isBP) {
     elements.modelNoteCopy.append(
       mathSpan("\\rho", "math-inline"),
-      " は盤面生成のみに使用します。BP の初期メッセージはすべて ",
-      mathSpan("[0.5,\\,0.5]", "math-inline"),
+      " は盤面生成と推論の事前分布に使用します。変数→因子の初期値は ",
+      mathSpan("[1-\\rho,\\,\\rho]", "math-inline"),
       " です。",
     );
   } else {
     elements.modelNoteCopy.append(
       mathSpan("\\rho", "math-inline"),
-      " は盤面生成のみに使用します。目的分布は ",
+      " は盤面生成と事前分布に使用します。目的分布は ",
       mathSpan(
-        "P(\\mathbf{x}\\mid\\mathbf{c})=\\frac{1}{Z}\\prod_a\\delta\\!\\left(\\sum_{i\\in\\partial a}x_i,c_a\\right)",
+        "P(\\mathbf{x}\\mid\\mathbf{c})=\\frac{1}{Z_\\rho}\\prod_i\\rho^{x_i}(1-\\rho)^{1-x_i}\\prod_a\\delta\\!\\left(\\sum_{i\\in\\partial a}x_i,c_a\\right)",
         "math-inline",
       ),
-      "、ブロック条件付き確率は制約因子の積だけで決まります。",
+      "、有効な候補を事前分布の重みでサンプリングします。",
     );
   }
   syncBlockSizeUI();
@@ -333,7 +333,7 @@ function initialize(board) {
   elements.trace.replaceChildren();
   elements.emptyState.hidden = false;
   if (inferenceMethod === "bp" && graph.edges.length) {
-    setEmptyState("初期メッセージを設定しました", "すべての有向メッセージは", "[0.5,\\,0.5]");
+    setEmptyState("初期メッセージを設定しました", "変数→因子は [1−ρ, ρ]、因子→変数は [0.5, 0.5] です。", "\\rho=" + formatNumber(graph.rho));
   } else if (inferenceMethod === "gibbs" && gibbsState.blocks.length) {
     setEmptyState(
       "制約を満たす初期配置を作りました",
@@ -368,7 +368,7 @@ function renderVariableCalculation(calculation) {
       : "1\\;\\text{（空積）}";
     line.append(
       detailMathSpan(messageToLatex(calculation.from, calculation.to, row.value), "formula-key"),
-      detailMathSpan(`\\propto ${expression}`),
+      detailMathSpan(`\\propto ${formatNumber(row.prior)}\\cdot ${expression}`),
       detailMathSpan(`=${formatNumber(row.raw)}`, "result-value"),
     );
     body.append(line);
@@ -478,7 +478,7 @@ function createCycleContent(trace) {
   content.className = "cycle-content";
   content.append(createPhase(
     "変数 → 因子",
-    "m_{i\\to a}(x_i)\\propto\\prod_{b\\in\\partial i\\setminus a}m_{b\\to i}(x_i)",
+    "m_{i\\to a}(x_i)\\propto\\rho^{x_i}(1-\\rho)^{1-x_i}\\prod_{b\\in\\partial i\\setminus a}m_{b\\to i}(x_i)",
     trace.variableCalculations,
     "variable",
   ));
@@ -572,7 +572,7 @@ function createGibbsStepContent(trace) {
   const enumerationFormula = document.createElement("code");
   renderDetailLatex(
     enumerationFormula,
-    "P(\\mathbf{x}_B\\mid\\mathbf{x}_{\\backslash B})\\propto\\prod_{a:\\,\\partial a\\cap B\\ne\\emptyset}\\delta\\!\\left(\\sum_{i\\in\\partial a}x_i,c_a\\right)",
+    "P(\\mathbf{x}_B\\mid\\mathbf{x}_{\\backslash B},\\mathbf{c})\\propto\\prod_{i\\in B}\\rho^{x_i}(1-\\rho)^{1-x_i}\\prod_{a:\\,\\partial a\\cap B\\ne\\emptyset}\\delta\\!\\left(\\sum_{i\\in\\partial a}x_i,c_a\\right)",
   );
   enumerationHeading.append(enumerationLabel, enumerationFormula);
   enumeration.append(enumerationHeading);
@@ -612,7 +612,7 @@ function createGibbsStepContent(trace) {
     const weight = document.createElement("p");
     weight.append(
       detailMathSpan(
-        `w=\\prod_{a:\\,\\partial a\\cap B\\ne\\emptyset}\\delta_a=${formatNumber(candidate.rawWeight)}`,
+        `w=\\rho^{${candidate.mineCount}}(1-\\rho)^{${trace.block.variableIds.length - candidate.mineCount}}\\prod_{a:\\,\\partial a\\cap B\\ne\\emptyset}\\delta_a=${formatNumber(candidate.rawWeight)}`,
       ),
     );
     const probability = document.createElement("p");

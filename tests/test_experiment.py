@@ -85,12 +85,12 @@ class ExperimentTests(unittest.TestCase):
                 record = json.loads(
                     raw_json, parse_constant=lambda value: self.fail(value)
                 )
-                self.assertEqual(record["schema_version"], 3)
+                self.assertEqual(record["schema_version"], 4)
                 self.assertEqual(
                     record["inference"]["target_distribution"],
-                    "uniform_feasible_assignments",
+                    "bernoulli_posterior",
                 )
-                self.assertFalse(record["inference"]["rho_used_as_inference_prior"])
+                self.assertTrue(record["inference"]["rho_used_as_inference_prior"])
                 self.assertFalse(record["inference"]["fixed_total_mines"])
                 self.assertEqual(record["overlap"]["definition"], "matching_fraction")
 
@@ -140,8 +140,8 @@ class ExperimentTests(unittest.TestCase):
 
     def test_explicitly_different_models_are_rejected(self) -> None:
         for section, key, value in (
-            ("inference", "target_distribution", "bernoulli_posterior"),
-            ("inference", "rho_used_as_inference_prior", True),
+            ("inference", "target_distribution", "uniform_feasible_assignments"),
+            ("inference", "rho_used_as_inference_prior", False),
             ("inference", "fixed_total_mines", True),
             ("overlap", "definition", "spin_overlap"),
         ):
@@ -156,7 +156,9 @@ class ExperimentTests(unittest.TestCase):
             execute_sweep(tiny_config(), directory)
             run_path = next(Path(directory).glob("rho_*/sample_*/run.json"))
             legacy = read_json(run_path)
-            legacy["schema_version"] = 2
+            legacy["schema_version"] = 3
+            legacy["inference"]["target_distribution"] = "uniform_feasible_assignments"
+            legacy["inference"]["rho_used_as_inference_prior"] = False
             for key in ("definition", "variable_set", "empty_value"):
                 legacy["overlap"].pop(key)
             write_json_atomic(run_path, legacy)

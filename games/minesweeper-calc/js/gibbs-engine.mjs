@@ -18,14 +18,23 @@ function isValidAssignment(graph, assignment) {
   return graph.factors.every((factor) => factorValue(factor, assignment) === factor.clue);
 }
 
+function logPriorWeight(bits, rho) {
+  const count = bits.reduce((sum, bit) => sum + bit, 0);
+  if (rho === 0) return count === 0 ? 0 : -Infinity;
+  if (rho === 1) return count === bits.length ? 0 : -Infinity;
+  return count * Math.log(rho) + (bits.length - count) * Math.log1p(-rho);
+}
+
 function createInitialAssignment(graph) {
   for (const bits of enumerateBits(graph.variables.length)) {
     const assignment = Object.fromEntries(
       graph.variables.map((variable, index) => [variable.id, bits[index]]),
     );
-    if (isValidAssignment(graph, assignment)) return assignment;
+    if (isValidAssignment(graph, assignment) && Number.isFinite(logPriorWeight(bits, graph.rho))) {
+      return assignment;
+    }
   }
-  throw new Error("盤面の数字を同時に満たす地雷配置がありません。");
+  throw new Error("盤面の数字を満たし、事前確率が正の地雷配置がありません。");
 }
 
 function combinations(values, size, start = 0, prefix = [], result = []) {
@@ -122,28 +131,35 @@ export function runGibbsStep(graph, state, random = Math.random) {
       factorChecks,
       valid,
       mineCount: bits.reduce((sum, bit) => sum + bit, 0),
-      rawWeight: valid ? 1 : 0,
+      logWeight: valid ? logPriorWeight(bits, graph.rho) : -Infinity,
+      rawWeight: valid ? Math.exp(logPriorWeight(bits, graph.rho)) : 0,
       probability: 0,
       interval: [0, 0],
     };
   });
 
   const normalization = candidates.reduce((sum, candidate) => sum + candidate.rawWeight, 0);
-  if (!(normalization > 0)) {
+  const maximum = Math.max(...candidates.map(({ logWeight }) => logWeight));
+  if (!Number.isFinite(maximum)) {
     throw new Error(`${block.id} の条件付き分布に有効な割当がありません。`);
   }
+  const scaledTotal = candidates.reduce((sum, candidate) => (
+    sum + Math.exp(candidate.logWeight - maximum)
+  ), 0);
 
   let cumulative = 0;
   candidates.forEach((candidate) => {
     const lower = cumulative;
-    candidate.probability = candidate.rawWeight / normalization;
+    candidate.probability = Math.exp(candidate.logWeight - maximum) / scaledTotal;
     cumulative += candidate.probability;
     candidate.interval = [lower, cumulative];
   });
 
   const randomValue = randomUnitInterval(random);
-  let selectedIndex = candidates.findIndex((candidate) => randomValue < candidate.interval[1]);
-  if (selectedIndex < 0) selectedIndex = candidates.length - 1;
+  let selectedIndex = candidates.findIndex((candidate) => (
+    candidate.probability > 0 && randomValue < candidate.interval[1]
+  ));
+  if (selectedIndex < 0) selectedIndex = candidates.findLastIndex(({ probability }) => probability > 0);
   const selected = candidates[selectedIndex];
   const assignment = cloneAssignment(state.assignment);
   block.variableIds.forEach((variableId) => {
@@ -185,6 +201,7 @@ export function runGibbsStep(graph, state, random = Math.random) {
       affectedFactorIds: affectedFactors.map(({ id }) => id),
       candidates,
       normalization,
+      logNormalization: maximum + Math.log(scaledTotal),
       randomValue,
       selectedIndex,
       sampleCount,

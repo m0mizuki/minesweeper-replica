@@ -4,8 +4,8 @@ model:
   rho: 0.15
 
 inference:
-  target_distribution: uniform_feasible_assignments
-  rho_used_as_inference_prior: false
+  target_distribution: bernoulli_posterior
+  rho_used_as_inference_prior: true
   fixed_total_mines: false
 
 overlap:
@@ -32,7 +32,7 @@ bp:
   tolerance: 1.0e-10
   # old messageを保持する割合
   damping: 0.2
-  initialization: uniform
+  initialization: prior
   seed: 34567
 
 mcmc:

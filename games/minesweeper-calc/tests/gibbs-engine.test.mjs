@@ -14,6 +14,29 @@ const satisfiesAllClues = (graph, assignment) => graph.factors.every((factor) =>
   factor.variableIds.reduce((sum, id) => sum + assignment[id], 0) === factor.clue
 ));
 
+test("制約がなければブロック条件付き分布はBernoulli事前分布になる", () => {
+  const graph = createFactorGraph({ size: 2, rho: 0.2, revealed: new Set(), mines: new Set() });
+  const state = createGibbsState(graph, 2, () => 0.99);
+  const { trace } = runGibbsStep(graph, state, () => 0.99);
+  const expected = [0.64, 0.16, 0.16, 0.04];
+  trace.candidates.forEach(({ probability }, index) => {
+    assert.ok(Math.abs(probability - expected[index]) < 1e-12);
+  });
+});
+
+test("ρの端点では事前分布の支持にある配置だけを選ぶ", () => {
+  for (const rho of [0, 1]) {
+    const graph = createFactorGraph({ size: 2, rho, revealed: new Set(), mines: new Set() });
+    const state = createGibbsState(graph, 4);
+    const result = runGibbsStep(graph, state, () => 1 - Number.EPSILON);
+    assert.ok(Object.values(result.state.assignment).every((value) => value === rho));
+    assert.equal(result.trace.candidates[result.trace.selectedIndex].probability, 1);
+  }
+  const board = createExampleBoard();
+  board.rho = 0;
+  assert.throws(() => createGibbsState(createFactorGraph(board)), /事前確率/);
+});
+
 test("指定したサイズの変数部分集合をブロックとして列挙する", () => {
   const graph = createFactorGraph(createExampleBoard());
   const pairBlocks = createGibbsBlocks(graph, 2);
@@ -48,17 +71,19 @@ test("1ステップで候補を列挙・正規化し乱数区間から選択す�
   assert.notDeepEqual(state.assignment, initial.assignment);
   trace.candidates.forEach((candidate) => {
     const deltaProduct = candidate.factorChecks.every(({ satisfied }) => satisfied) ? 1 : 0;
-    assert.equal(candidate.rawWeight, deltaProduct);
+    const expected = deltaProduct * graph.rho ** candidate.mineCount
+      * (1 - graph.rho) ** (trace.block.variableIds.length - candidate.mineCount);
+    assert.ok(Math.abs(candidate.rawWeight - expected) < 1e-12);
   });
-  assert.equal(trace.normalization, 2);
+  assert.ok(Math.abs(trace.normalization - 4 / 81) < 1e-12);
   const probabilitySum = trace.candidates.reduce((sum, candidate) => sum + candidate.probability, 0);
   assert.ok(Math.abs(probabilitySum - 1) < 1e-12);
   const validProbabilities = trace.candidates
     .filter(({ valid }) => valid)
     .map(({ probability }) => probability)
     .sort((left, right) => left - right);
-  assert.ok(Math.abs(validProbabilities[0] - 1 / 2) < 1e-12);
-  assert.ok(Math.abs(validProbabilities[1] - 1 / 2) < 1e-12);
+  assert.ok(Math.abs(validProbabilities[0] - 1 / 3) < 1e-12);
+  assert.ok(Math.abs(validProbabilities[1] - 2 / 3) < 1e-12);
   const selected = trace.candidates[trace.selectedIndex];
   assert.ok(trace.randomValue >= selected.interval[0]);
   assert.ok(trace.randomValue < selected.interval[1]);

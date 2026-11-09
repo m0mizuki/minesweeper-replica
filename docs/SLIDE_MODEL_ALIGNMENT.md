@@ -1,53 +1,85 @@
-# スライド草稿との問題設定の照合
+# 推論モデルの更新とスライド草稿との対応
 
-2026-10-30に提示された「スライド草稿.md」の本文のCSP・BP・MCMCを基準とする。
-草稿中で今後の拡張として述べられている総地雷数制約や、別案のBernoulli事前分布は、
-今回の推論測度には含めない。
+2026-11-09の指定により、事後分布を次に変更した。
 
-| 項目 | 現行の設定と照合結果 |
-| --- | --- |
-| 真の配置 | 各セル独立に Bernoulli(`rho`) で生成。既存実装が一致 |
-| 変数と制約 | 未開示セルが二値変数、開示済み安全セルの周囲8近傍の和が数字に一致。既存実装が一致 |
-| 推論測度 | `P(x given c) = Z^-1 product_a delta(sum_i x_i, c_a)`。既存のExact・BP・MCMCが一致 |
-| 総地雷数 | 固定せず、推論にも大域制約を入れない。既存実装が一致 |
-| BP | 一様初期値は `[0.5, 0.5]`。変数メッセージ・beliefに生成密度の事前因子を掛けない。既存実装が一致 |
-| MCMC | 因子グラフ上のBFSで局所ブロックを作り、外側を固定して全接続制約を満たす候補から一様抽出。既存の研究用実装が一致 |
-| BP–MCMC差 | 未開示変数上の平均絶対誤差 `comparison.bp_vs_mcmc.mae` が草稿の `D_BP-MCMC` に対応 |
-| overlap | 旧スピン積から、草稿の一致率 `q = mean(x_i == x'_i)` へ変更。Exact・MCMC・集計・図示を0〜1に統一 |
+$$
+P(\boldsymbol{x}\mid\boldsymbol{c})=
+\frac{1}{Z_\rho}\prod_i P_0(x_i)
+\prod_a\delta\!\left(\sum_{i\in\partial a}x_i,c_a\right),
+\qquad P_0(x_i)=\rho^{x_i}(1-\rho)^{1-x_i}.
+$$
 
-`N` はoverlap・周辺確率の比較では未開示変数数を意味する。
-保存済みの `model.N` は盤面セル数なので、比較時の分母は
-`instance.number_of_variables` を使う。未知変数が0個の場合、overlapは1、
-周辺確率の誤差は0とする。
+変数は未開示セル、制約は開示済み安全セルの数字とする。総地雷数は固定しない。
+観測集合を固定し、mask の選択尤度は含めない。mask の生成過程まで条件付けする完全な
+Bayes posterior との違いは `RS_RSB_theory_notes.md` を参照。
 
-草稿では開示マスの選び方と境界条件は指定されていないため、既存の
-`all_safe` / `bernoulli_safe` と、盤面外を隣接に含めない境界条件を使用する。
-観測率は引き続き実験設定で指定する。
+## BP
 
-## 保存結果の扱い
+$$
+m_{i\to a}(x_i)\propto P_0(x_i)
+\prod_{b\in\partial i\setminus a}m_{b\to i}(x_i),
+\qquad
+b_i(x_i)\propto P_0(x_i)\prod_{a\in\partial i}m_{a\to i}(x_i).
+$$
 
-`run.json` のschema versionを3にし、`inference` に一様測度・事前因子なし・
-総地雷数固定なし、`overlap` に `matching_fraction`・未開示変数集合・空配置の規約を記録する。
-同じ情報を正規化した `config.json`、`aggregate.json`、`candidate_analysis.json` に残す。
-入力configで別の測度やoverlapを明示するとエラーにする。
-モデル情報を省略した従来の入力configは、新規計算の設定として使用できる。
+事前因子は変数更新と belief にそれぞれ1回含める。因子→変数の更新式は従来どおり。
+既定の変数→因子初期値は `[1−ρ, ρ]`、因子→変数は中立な `[0.5, 0.5]`。
+`initialization="prior"` を既定とし、`uniform` / `random` は初期値依存性の診断用に残す。
+制約のない変数の地雷確率はρとなる。木では厳密周辺確率に一致し、ループでは近似となる。
 
-旧runの再開、現行runとの混合集計、旧runへの理論診断はエラーにする。
-既存結果を保持したまま、新しい出力先で再計算すること。
+## Blocked Gibbs
+
+$$
+P(\boldsymbol{x}_B\mid\boldsymbol{x}_{\setminus B},\boldsymbol{c})
+\propto \prod_{i\in B}P_0(x_i)
+\prod_{a:\partial a\cap B\ne\emptyset}
+\delta\!\left(\sum_{i\in\partial a}x_i,c_a\right).
+$$
+
+外側の事前因子とブロックに接続しない制約は定数なので打ち消せる。
+外側を固定し、接続する全制約を満たす候補を列挙し、ブロック内地雷数kに対する
+`ρ^k (1−ρ)^(|B|−k)` で重み付けして抽出する。研究用実装のBFSブロック選択は
+配置に依存しないため、各更新は目標分布に対する詳細釣り合いを満たす。
+ただし小さなブロックでは解空間を移動できない場合がある。定常分布の妥当性と
+エルゴード性・混合速度は別に診断する。
+
+ρ=1/2、または有効候補の地雷数がすべて同じ場合、条件付き分布は一様になる。
+
+## Exact・Bethe・端点
+
+Exact の周辺確率・planted/replica overlap は正規化した事前重みで集計する。
+`number_of_feasible_solutions` と `mine_count_histogram` は重みを付けない制約解の数を保つ。
+`partition_function` は解数でなく事前の下で制約が満たされる確率となる。
+ρ=1/2でも `Z_rho = number_of_feasible_solutions / 2^N` である。
+
+対数重みと log-sum-exp で計算し、分配関数がアンダーフローしても対数分配関数と
+正規化した確率は保持する。ρ=0,1 は決定論的な事前分布として扱う。
+制約の事前質量がゼロなら Exact は `has_posterior_mass=False`、BP は `infeasible`。
+MCMC は制約を満たし事前確率が正の初期配置を要求する。
+
+Bethe の変数規格化定数と安定性解析の BP map にも事前因子を含める。
+エントロピーは
+
+$$
+H_B=\log Z_B-\sum_i[b_i(1)\log\rho+b_i(0)\log(1-\rho)]
+$$
+
+となる（0 log 0 は0）。
+
+## 保存結果と検証
+
+`run.json` は schema version 4、`inference.target_distribution` は
+`bernoulli_posterior`、`rho_used_as_inference_prior` は true とする。
+旧結果の再開・混合集計・理論診断を拒否する。新しい出力先で再計算すること。
 
 ```powershell
-python scripts/run_sweep.py configs/sweeps/rho_smoke.json --output results/rho_smoke_matching_fraction
+python scripts/run_sweep.py configs/sweeps/rho_smoke.json --output results/rho_smoke_bernoulli_v4
 ```
 
-同じ測度の旧overlapなら `q = (q_spin + 1)/2`、平均も同じ変換、
-分散は旧値の1/4、分布幅は旧値の1/2になる。ただし旧Bernoulli事前測度の結果は、
-この変換だけで現行結果にはならない。保存済みデータの自動変換は行わない。
+overlap は未開示変数上の一致率 `q=mean(x_i == x'_i)`（空配置では1）を保つ。
+旧スピン定義の overlap を変換するだけでは、旧一様測度の結果を現行測度へ変換できない。
 
-## 検証
-
-`tests/test_slide_model.py` で `x0+x1=1, x1+x2=1` を使い、
-地雷数が異なる解 `010` と `101` の重みが各1/2になること、BPとExactの一致、
-MCMCでの両解のサンプリング、同じグラフの推論が `rho` に依存しないことを確認する。
-その他の回帰テストで、Exactのoverlap分布、MCMCの一致率、候補解析、旧結果の拒否を検証する。
-
-大規模な候補領域の再計算や、mixing改善・RSB転移の確定はこの変更には含めない。
+`tests/test_slide_model.py` では `x0+x1=1, x1+x2=1` の解010と101を用い、
+確率がそれぞれ1−ρとρ、周辺確率が `[ρ, 1−ρ, ρ]` となることを確認する。
+BP・Exact・MCMC の比較、端点、アンダーフロー、Bethe entropy、旧結果の拒否も検証する。
+大規模な候補 study の数値結果はこの変更では再計算していない。

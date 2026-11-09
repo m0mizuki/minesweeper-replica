@@ -56,6 +56,9 @@ export function createExampleBoard() {
 }
 
 export function createFactorGraph(board) {
+  if (!Number.isFinite(board.rho) || board.rho < 0 || board.rho > 1) {
+    throw new RangeError("rho は 0 以上 1 以下で指定してください。");
+  }
   const cells = [];
   const variables = [];
   const factors = [];
@@ -98,14 +101,14 @@ export function createFactorGraph(board) {
     }
   }
 
-  return { size: board.size, cells, variables, factors, edges };
+  return { size: board.size, rho: board.rho, cells, variables, factors, edges };
 }
 
 export function createBPState(graph) {
   const variableToFactor = {};
   const factorToVariable = {};
   for (const edge of graph.edges) {
-    variableToFactor[edge.key] = [0.5, 0.5];
+    variableToFactor[edge.key] = [1 - graph.rho, graph.rho];
     factorToVariable[edge.key] = [0.5, 0.5];
   }
   return {
@@ -127,7 +130,7 @@ function product(values) {
 export function computeMarginals(graph, factorToVariable) {
   const marginals = {};
   for (const variable of graph.variables) {
-    const raw = [0, 1].map((value) => product(
+    const raw = [0, 1].map((value) => (value ? graph.rho : 1 - graph.rho) * product(
       variable.factorIds.map((factorId) => factorToVariable[edgeKey(variable.id, factorId)][value]),
     ));
     marginals[variable.id] = normalize(raw);
@@ -150,7 +153,8 @@ function updateVariableMessages(graph, previousFactorToVariable) {
         message: `m_${factorId}→${variable.id}(${value})`,
         value: previousFactorToVariable[edgeKey(variable.id, factorId)][value],
       }));
-      return { value, terms, raw: product(terms.map((term) => term.value)) };
+      const prior = value ? graph.rho : 1 - graph.rho;
+      return { value, terms, prior, raw: prior * product(terms.map((term) => term.value)) };
     });
     const raw = rows.map((row) => row.raw);
     const normalized = normalize(raw);

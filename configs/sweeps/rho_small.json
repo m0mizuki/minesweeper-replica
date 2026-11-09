@@ -1,7 +1,7 @@
 {
   "inference": {
-    "target_distribution": "uniform_feasible_assignments",
-    "rho_used_as_inference_prior": false,
+    "target_distribution": "bernoulli_posterior",
+    "rho_used_as_inference_prior": true,
     "fixed_total_mines": false
   },
   "overlap": {
@@ -30,7 +30,7 @@
     "max_iterations": 1000,
     "tolerance": 1e-10,
     "damping": 0.2,
-    "initializations": ["uniform", "random", "random", "random"]
+    "initializations": ["prior", "random", "random", "random"]
   },
   "mcmc": {
     "sampler": "local_bfs_blocked_gibbs",

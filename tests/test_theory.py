@@ -46,6 +46,29 @@ def summary(mean: float | None) -> dict:
 
 
 class TheoryTests(unittest.TestCase):
+    def test_bethe_and_stability_at_deterministic_prior_endpoints(self) -> None:
+        observed = np.array([[False, True, False]])
+        for rho in (0.0, 1.0):
+            with self.subTest(rho=rho):
+                graph = build_factor_graph(observed, np.array([[-1, int(2*rho), -1]]))
+                bp = run_bp(graph, rho)
+                bethe = compute_bethe_result(graph, bp)
+                self.assertAlmostEqual(bethe.log_partition_function, 0.0)
+                self.assertAlmostEqual(bethe.entropy, 0.0)
+                self.assertAlmostEqual(compute_rs_stability(graph, bp).spectral_radius, 0.0)
+
+    def test_bethe_entropy_for_unequal_mass_tree_solutions(self) -> None:
+        observed = np.array([[False, True, False, True, False]])
+        clues = np.array([[-1, 1, -1, 1, -1]])
+        graph = build_factor_graph(observed, clues)
+        rho = 0.2
+        bp = run_bp(graph, rho)
+        bethe = compute_bethe_result(graph, bp)
+        exact = solve_exact(graph, rho)
+        self.assertAlmostEqual(bethe.log_partition_function, exact.log_partition_function)
+        self.assertAlmostEqual(bethe.entropy, -rho*math.log(rho)-(1-rho)*math.log1p(-rho))
+        self.assertAlmostEqual(compute_rs_stability(graph, bp).spectral_radius, 0.0)
+
     def test_bethe_is_exact_and_stable_on_tree(self) -> None:
         graph, truth = one_of_two_graph()
         rho = 0.17
@@ -94,7 +117,7 @@ class TheoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compute_rs_stability(graph, bp, max_edges=-1)
 
-    def test_unconstrained_graph_counts_all_assignments(self) -> None:
+    def test_unconstrained_graph_has_normalized_prior(self) -> None:
         observed = np.zeros((2, 2), dtype=np.bool_)
         clues = np.full((2, 2), -1, dtype=np.int_)
         graph = build_factor_graph(observed, clues)
@@ -102,8 +125,8 @@ class TheoryTests(unittest.TestCase):
         bethe = compute_bethe_result(graph, bp)
         stability = compute_rs_stability(graph, bp)
 
-        self.assertAlmostEqual(bethe.log_partition_function, math.log(16.0))
-        self.assertAlmostEqual(bethe.entropy, math.log(16.0))
+        self.assertAlmostEqual(bethe.log_partition_function, 0.0)
+        self.assertAlmostEqual(bethe.entropy, -4 * (0.23 * math.log(0.23) + 0.77 * math.log(0.77)))
         self.assertAlmostEqual(stability.spectral_radius, 0.0)
         self.assertEqual(stability.jacobian.shape, (0, 0))
 

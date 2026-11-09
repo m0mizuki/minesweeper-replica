@@ -17,7 +17,7 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 - 未観測セルを変数、観測済み安全セルを制約とする factor graph を構築
 - planted configuration の CSP 整合性を検査
 - 小規模CSPのfeasible statesを完全列挙
-- feasible states 上の一様分布について厳密な分配関数・周辺確率を計算
+- Bernoulli(`rho`) 事前分布で重み付けした feasible states の厳密な分配関数・周辺確率を計算
 - planted overlapと独立2レプリカ間の厳密な overlap 分布を計算
 - 正規化・log-domain更新・dampingを備えたBelief Propagation
 - BPの収束状態、iteration数、message residualを記録
@@ -47,10 +47,14 @@ solution-space の統計構造を調べる研究用コードです。研究方�
 
 いずれも地雷セルは clue として観測しません。
 
-推論の target distribution は、clue 制約をすべて満たす配置上の一様分布です。
-`rho` は planted ground truth の生成密度としてのみ使い、Exact・BP・MCMC の
-配置重みには使いません。したがって、同じ factor graph なら推論結果は `rho` に
-依存せず、制約のない変数の周辺確率は 0.5 です。
+推論の target distribution は、Bernoulli(`rho`) 事前分布を clue 制約で条件付けした分布です。
+`P(x | c) = Z_rho^-1 product_i rho^x_i (1-rho)^(1-x_i) product_a delta(sum_i x_i, c_a)`
+を Exact・BP・MCMC 共通で使用します。制約のない変数の地雷周辺確率は `rho` です。
+BP の既定初期値は変数→因子が `[1-rho, rho]`、因子→変数が `[0.5, 0.5]` です。
+`uniform` と `random` は初期値依存性を調べるために明示的に選択できます。
+厳密分配関数 `Z_rho` は事前分布の下で制約が満たされる確率で、解数とは区別します。
+ρ=0,1 で制約の事前確率がゼロなら Exact は質量ゼロ、BP は `infeasible` を返し、
+MCMC は事前確率ゼロの初期配置を拒否します。
 
 添付の「スライド草稿.md」に合わせ、overlap は未開示変数上の一致率
 `q = mean(x_i == x'_i)`（0〜1）を使います。Exact・MCMC の planted/replica
@@ -216,16 +220,17 @@ random-graph surrogateや1RSBへ進む条件は
 実際に得られた数値、考察、限界、次の検証項目は
 [`docs/MILESTONE7_RESULTS_DISCUSSION.md`](docs/MILESTONE7_RESULTS_DISCUSSION.md)を参照してください。
 
-同文書の報告値は旧 Bernoulli 事前分布モデルで得たもので、現行の一様測度には
-適用できません。次の設定は現行モデル向けに更新済みですが、数値結果は未再計算です。
+同文書の報告値は過去のモデル・overlap 規約で得たものです。
+次の設定は現行 Bernoulli 事後分布向けに更新済みですが、数値結果は未再計算です。
+schema version 4 より前の保存結果は混合集計や再開の対象にせず、新しい出力先で再計算してください。
 
 ```powershell
 python scripts/run_candidate_study.py `
   configs/studies/rsb_candidate_rho_010_050_n20.json `
-  --output results/rsb_candidate_rho_010_050_n20_matching_fraction
+  --output results/rsb_candidate_rho_010_050_n20_bernoulli_v4
 
 python scripts/analyze_rs_theory.py `
-  results/rsb_candidate_rho_010_050_n20_matching_fraction `
+  results/rsb_candidate_rho_010_050_n20_bernoulli_v4 `
   --max-edges 256
 ```
 

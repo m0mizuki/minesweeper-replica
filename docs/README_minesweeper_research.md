@@ -81,12 +81,13 @@ $$
 
 を与える。
 
-したがって posterior / Gibbs measure は、制約を満たす配置上の一様分布
+posterior / Gibbs measure は、Bernoulli 事前分布を制約で条件付けした分布とする（2026-11-09更新）。
 
 $$
 P(\mathbf{x}\mid \mathbf{y})
 =
-\frac{1}{Z}
+\frac{1}{Z_\rho}
+\prod_i\rho^{x_i}(1-\rho)^{1-x_i}
 \prod_{a\in A}
 \mathbf{1}
 \left(
@@ -95,9 +96,9 @@ P(\mathbf{x}\mid \mathbf{y})
 .
 $$
 
-ここで $Z$ は feasible solution の総数である。$\rho$ は planted ground truth
-$\mathbf{x}^0$ の生成密度としてのみ使い、推論時の配置重みには使わない。
-すなわち Bernoulli 事前因子 $\prod_iP_0(x_i)$ は target distribution に含めない。
+ここで $Z_\rho$ は事前分布の下で制約が満たされる確率であり、解数とは異なる。
+$\rho$ は生成密度と推論事前分布の両方に使い、$P_0(x_i)=\rho^{x_i}(1-\rho)^{1-x_i}$ とする。
+観測 mask の選択尤度は含めず、観測集合を固定した測度を扱う。
 
 この分布が、BP と MCMC が比較すべき**共通の target distribution** である。
 
@@ -140,7 +141,7 @@ variable-to-factor message:
 
 $$
 m_{i\to a}(x_i)
-\propto
+\propto P_0(x_i)
 \prod_{b\in\partial i\setminus a}
 m_{b\to i}(x_i)
 $$
@@ -163,13 +164,14 @@ $$
 
 $$
 P_i(x_i)
-\propto
+\propto P_0(x_i)
 \prod_{a\in\partial i}
 m_{a\to i}(x_i).
 $$
 
 ### 実装上の要件
 
+- 既定初期値は変数→因子を `[1−ρ, ρ]`、因子→変数を `[0.5, 0.5]` とする
 - message は必ず正規化する
 - zero division / underflow を防ぐ
 - damping を設定可能にする
@@ -222,7 +224,7 @@ $$
 
 - exact marginal
 - exact overlap distribution
-- exact partition function / number of solutions
+- exact weighted partition function と number of solutions を別々に計算
 
 を求める。
 
@@ -231,6 +233,9 @@ $$
 #### Phase 2: blocked MCMC
 
 局所 block を選び、block 内の binary variables を全列挙して、外部変数を固定した conditional distribution から更新する。
+
+条件付き分布はブロック内の Bernoulli 事前因子と、ブロックに接続する全制約の積に比例する。
+有効候補を事前重みに比例して抽出する。ブロック選択は配置に依存させない。
 
 block size は config 化する。
 

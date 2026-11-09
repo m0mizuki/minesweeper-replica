@@ -16,6 +16,7 @@ from .bp import (
     BPResult,
     _build_edge_layout,
     _factor_message,
+    _log_probabilities,
     _variable_message,
     run_bp,
 )
@@ -192,7 +193,7 @@ def compute_bethe_result(
 
     variable_logs = []
     for variable in range(graph.number_of_variables):
-        log_terms = np.zeros(2, dtype=np.float64)
+        log_terms = _log_probabilities(np.array([1.0 - bp.rho, bp.rho]))
         for edge, edge_variable in enumerate(bp.edge_variables):
             if edge_variable == variable:
                 message = bp.factor_to_variable_messages[edge]
@@ -215,7 +216,16 @@ def compute_bethe_result(
         raise ValueError("Bethe normalizer has zero mass")
 
     log_partition = float(sum(variable_logs) + sum(factor_logs) - sum(edge_logs))
-    entropy = log_partition
+    # Hard factors contribute log(1)=0 on the support. H = log Z - E log prior.
+    expected_log_prior = 0.0
+    for probability, prior in (
+        (1.0 - bp.marginals, 1.0 - bp.rho),
+        (bp.marginals, bp.rho),
+    ):
+        mass = float(probability.sum())
+        if mass > 0.0:
+            expected_log_prior += mass * _log_probability(prior)
+    entropy = log_partition - expected_log_prior
     variable_count = graph.number_of_variables
     return BetheResult(
         log_partition_function=log_partition,
@@ -249,6 +259,7 @@ def _undamped_bp_map(
     graph: FactorGraph,
     variable_log_odds: np.ndarray,
     clipping: float,
+    rho: float,
 ) -> np.ndarray:
     layout = _build_edge_layout(graph)
     variable_to_factor = _sigmoid(variable_log_odds)
@@ -266,12 +277,14 @@ def _undamped_bp_map(
         factor_to_variable[edge] = message
 
     updated = np.empty_like(variable_to_factor)
+    prior_logs = _log_probabilities(np.array([1.0 - rho, rho]))
     for edge, variable in enumerate(layout.edge_variables):
         message = _variable_message(
             edge,
             variable,
             layout,
             factor_to_variable,
+            prior_logs,
         )
         if message is None:
             raise ValueError("perturbed BP map reached zero variable mass")
@@ -323,8 +336,8 @@ def compute_rs_stability(
             minus = base_log_odds.copy()
             plus[source] += perturbation
             minus[source] -= perturbation
-            mapped_plus = _undamped_bp_map(graph, plus, clipping_probability)
-            mapped_minus = _undamped_bp_map(graph, minus, clipping_probability)
+            mapped_plus = _undamped_bp_map(graph, plus, clipping_probability, bp.rho)
+            mapped_minus = _undamped_bp_map(graph, minus, clipping_probability, bp.rho)
             jacobian[:, source] = (mapped_plus - mapped_minus) / (
                 2.0 * perturbation
             )

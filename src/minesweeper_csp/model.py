@@ -1,4 +1,4 @@
-"""Shared conventions for the slide draft's CSP and saved numerical results."""
+"""Shared conventions for the Bernoulli posterior and saved numerical results."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from typing import Any, Mapping
 
 
 INFERENCE_MODEL = {
-    "target_distribution": "uniform_feasible_assignments",
-    "rho_used_as_inference_prior": False,
+    "target_distribution": "bernoulli_posterior",
+    "rho_used_as_inference_prior": True,
     "fixed_total_mines": False,
 }
 OVERLAP_CONVENTION = {
@@ -15,7 +15,7 @@ OVERLAP_CONVENTION = {
     "variable_set": "unobserved_cells",
     "empty_value": 1.0,
 }
-RUN_SCHEMA_VERSION = 3
+RUN_SCHEMA_VERSION = 4
 
 
 def validate_model_options(data: Mapping[str, Any]) -> None:

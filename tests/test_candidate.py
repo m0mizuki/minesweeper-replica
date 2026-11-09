@@ -128,7 +128,7 @@ class CandidateAnalysisTests(unittest.TestCase):
         self.assertEqual(len(set(seeds)), 2)
         self.assertEqual(
             plan["sweeps"][0]["config"]["bp"]["initializations"],
-            ["uniform", "random", "random"],
+            ["prior", "random", "random"],
         )
 
     def test_candidate_study_runs_size_analysis_and_pq_figures(self) -> None:
