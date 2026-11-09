@@ -64,6 +64,23 @@ test("資料例の盤面から4因子・5変数・12辺を構成する", () => {
   assert.deepEqual(graph.factors.map((factor) => factor.clue), [1, 1, 2, 2]);
 });
 
+test("資料例は盤面と数字を保ったまま指定したρで比較できる", () => {
+  const original = createExampleBoard();
+  const clues = createFactorGraph(original).factors.map(({ clue }) => clue);
+  for (const rho of [0.1, 0.3, 0.5, 0.8]) {
+    const board = createExampleBoard({ rho });
+    const graph = createFactorGraph(board);
+    assert.equal(board.rho, rho);
+    assert.equal(graph.rho, rho);
+    assert.deepEqual(board.mines, original.mines);
+    assert.deepEqual(board.revealed, original.revealed);
+    assert.deepEqual(graph.factors.map(({ clue }) => clue), clues);
+    for (const probabilities of Object.values(createBPState(graph).marginals)) {
+      approximately(probabilities[1], rho);
+    }
+  }
+});
+
 test("2×2盤面から因子グラフを構成してBPを更新できる", () => {
   const board = {
     size: 2,

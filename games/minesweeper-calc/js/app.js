@@ -890,12 +890,10 @@ elements.katexDetails.addEventListener("change", () => {
 });
 elements.startButton.addEventListener("click", beginWithCurrentSetup);
 elements.exampleButton.addEventListener("click", () => {
-  const example = createExampleBoard();
+  const example = createExampleBoard({ rho: Number(elements.rho.value) });
   boardSize = example.size;
   selectedRevealed = new Set(example.revealed);
   revealedBySize.set(boardSize, selectedRevealed);
-  elements.rho.value = example.rho.toFixed(2);
-  elements.rhoOutput.textContent = example.rho.toFixed(2);
   initialize(example);
 });
 elements.nextButton.addEventListener("click", advance);

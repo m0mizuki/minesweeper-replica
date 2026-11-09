@@ -47,10 +47,10 @@ export function createBoard({ size = 3, rho = 0.3, revealedKeys = [], random = M
   return { size, rho, revealed, mines };
 }
 
-export function createExampleBoard() {
+export function createExampleBoard({ rho = 1 / 3 } = {}) {
   return {
     size: 3,
-    rho: 1 / 3,
+    rho,
     revealed: new Set([cellKey(0, 1), cellKey(1, 0), cellKey(1, 2), cellKey(2, 1)]),
     mines: new Set([cellKey(0, 2), cellKey(2, 0), cellKey(2, 2)]),
   };

@@ -159,6 +159,27 @@ function scan(generationRho, inferenceRho) {
   return { generationRho, inferenceRho, cycles: 100, tolerance: 1e-10, counts, probabilityOfZeroMass, failures };
 }
 
+function dampedDensityPoint(rho) {
+  const graph = createFactorGraph(createExampleBoard({ rho }));
+  let state = createBPState(graph);
+  let status = "iteration_limit";
+  let cycle = 0;
+  let residual = 0;
+  for (cycle = 1; cycle <= 1000; cycle += 1) {
+    const next = runCycle(graph, state, { damping: 0.2 });
+    residual = maxMessageDifference(state, next.state);
+    state = next.state;
+    if (next.trace.hasContradiction) { status = "zero_mass"; break; }
+    if (residual < 1e-10) { status = "converged"; break; }
+  }
+  return {
+    rho, damping: 0.2, status, cycles: Math.min(cycle, 1000), residual,
+    bpMarginals: graph.variables.map(({ id }) => state.marginals[id][1]),
+    exactMarginals: [0, rho, 1 - rho, rho, 1],
+    exact: exact(graph),
+  };
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   console.log(JSON.stringify({
     examples: [example(1 / 3), example(0.5), example(1 / 3, 0.2)],
@@ -166,5 +187,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       oldUniform: scan(rho, 0.5),
       newBernoulli: scan(rho, rho),
     })),
+    dampedDensitySweep: [0.1, 0.2, 1 / 3, 0.4, 0.49, 0.5, 0.51, 0.6, 0.8, 0.9].map(dampedDensityPoint),
   }, null, 2));
 }

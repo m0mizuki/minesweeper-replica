@@ -21,6 +21,9 @@ uv run python -m http.server 8000 --directory games/minesweeper-calc
 
 ES Modules を使用しているため、`index.html` を直接開くのではなくHTTPサーバー経由で表示してください。
 
+「例を読み込む」は選択したρを保って、同じ例の盤面・数字を読み込みます。
+「条件を変更」でρを変更してから再び例を読み込むと、同じ制約に対するρ依存性を比較できます。
+
 ## テスト
 
 ```powershell
