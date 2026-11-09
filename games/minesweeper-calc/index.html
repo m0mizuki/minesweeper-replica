@@ -104,6 +104,7 @@
         <div class="run-panel" id="run-panel" hidden>
           <div class="run-summary">
             <span id="active-rho"></span>
+            <span id="active-damping">damping OFF</span>
             <span><b id="variable-count">0</b> variables</span>
             <span><b id="factor-count">0</b> factors</span>
             <span><b id="edge-count">0</b> <i id="third-metric-label">edges</i></span>
@@ -115,6 +116,20 @@
             </button>
             <button class="button button-secondary" id="edit-button" type="button">条件を変更</button>
           </div>
+        </div>
+
+        <div class="damping-control" id="bp-damping-control">
+          <label class="damping-toggle">
+            <input id="bp-damping-enabled" type="checkbox" />
+            <span>BP damping を有効にする</span>
+          </label>
+          <div class="control-copy">
+            <label for="bp-damping">旧メッセージを残す割合</label>
+            <output id="bp-damping-output" for="bp-damping">0.20</output>
+          </div>
+          <input id="bp-damping" type="range" min="0.05" max="0.95" step="0.05" value="0.20" disabled />
+          <p id="bp-damping-status">オフ：通常の BP 更新を行います。</p>
+          <p class="damping-hint">オンの場合は両方向のメッセージを混合します。計算中に変更すると、次のサイクルから適用します。</p>
         </div>
 
         <aside class="model-note" id="model-note">

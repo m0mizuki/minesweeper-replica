@@ -51,6 +51,12 @@ const elements = {
   edgeCount: document.querySelector("#edge-count"),
   thirdMetricLabel: document.querySelector("#third-metric-label"),
   activeRho: document.querySelector("#active-rho"),
+  dampingControl: document.querySelector("#bp-damping-control"),
+  dampingEnabled: document.querySelector("#bp-damping-enabled"),
+  damping: document.querySelector("#bp-damping"),
+  dampingOutput: document.querySelector("#bp-damping-output"),
+  dampingStatus: document.querySelector("#bp-damping-status"),
+  activeDamping: document.querySelector("#active-damping"),
   blockLegend: document.querySelector("#block-legend"),
   blockLegendLabel: document.querySelector("#block-legend-label"),
   modelNoteTitle: document.querySelector("#model-note-title"),
@@ -118,6 +124,20 @@ function setEmptyState(title, message, latex = null) {
   }
 }
 
+function effectiveDamping() {
+  return elements.dampingEnabled.checked ? Number(elements.damping.value) : 0;
+}
+
+function syncDampingUI() {
+  const damping = effectiveDamping();
+  elements.damping.disabled = !elements.dampingEnabled.checked;
+  elements.dampingOutput.textContent = Number(elements.damping.value).toFixed(2);
+  elements.dampingStatus.textContent = damping > 0
+    ? `オン：新メッセージ = ${damping.toFixed(2)} × 旧メッセージ + ${(1 - damping).toFixed(2)} × BP 更新値`
+    : "オフ：通常の BP 更新を行います。";
+  elements.activeDamping.textContent = damping > 0 ? `damping ON (${damping.toFixed(2)})` : "damping OFF";
+}
+
 function updateMethodCopy() {
   const isBP = inferenceMethod === "bp";
   elements.methodInputs.forEach((input) => {
@@ -143,6 +163,9 @@ function updateMethodCopy() {
   elements.thirdMetricLabel.textContent = isBP ? "edges" : "blocks";
   elements.blockSizeControl.hidden = isBP;
   elements.blockSizeNote.hidden = isBP;
+  elements.dampingControl.hidden = !isBP;
+  elements.activeDamping.hidden = !isBP;
+  syncDampingUI();
   elements.modelNoteTitle.textContent = isBP ? "地雷密度の扱い" : "条件付き分布の扱い";
   elements.modelNoteCopy.replaceChildren();
   if (isBP) {
@@ -452,9 +475,17 @@ function appendNormalization(body, calculation) {
     result,
     calculation.impossible
       ? "Z=0\\quad\\text{— 更新メッセージを正規化できません}"
-      : `Z=${formatNumber(calculation.normalization)}\\quad\\Longrightarrow\\quad ${vectorLatex(calculation.normalized)}`,
+      : `Z=${formatNumber(calculation.normalization)}\\quad\\Longrightarrow\\quad ${vectorLatex(calculation.undamped ?? calculation.normalized)}`,
   );
   body.append(result);
+  if (calculation.damping > 0 && !calculation.impossible) {
+    const damped = document.createElement("p");
+    damped.className = "damping-calculation";
+    damped.append(document.createTextNode("damping："), detailMathSpan(
+      `${formatNumber(calculation.damping)}\\times ${vectorLatex(calculation.previous)}+${formatNumber(1 - calculation.damping)}\\times ${vectorLatex(calculation.undamped)}=${vectorLatex(calculation.normalized)}`,
+    ));
+    body.append(damped);
+  }
   if (calculation.impossible) {
     const explanation = document.createElement("p");
     explanation.className = "no-assignment";
@@ -754,7 +785,7 @@ function renderBPTrace(trace) {
   traceByElement.set(details, { method: "bp", trace });
 
   const summary = document.createElement("summary");
-  summary.innerHTML = `<span>Cycle ${trace.cycle}</span><span>${trace.variableCalculations.length + trace.factorCalculations.length} messages${trace.hasContradiction ? " · 正規化失敗" : ""}</span>`;
+  summary.innerHTML = `<span>Cycle ${trace.cycle}</span><span>${trace.variableCalculations.length + trace.factorCalculations.length} messages · damping ${trace.damping > 0 ? formatNumber(trace.damping) : "OFF"}${trace.hasContradiction ? " · 正規化失敗" : ""}</span>`;
   details.append(summary);
 
   details.addEventListener("toggle", () => {
@@ -785,7 +816,7 @@ function renderGibbsTrace(trace) {
 
 function advance() {
   const result = inferenceMethod === "bp"
-    ? runCycle(graph, bpState)
+    ? runCycle(graph, bpState, { damping: effectiveDamping() })
     : runGibbsStep(graph, gibbsState);
   if (inferenceMethod === "bp") bpState = result.state;
   else gibbsState = result.state;
@@ -849,6 +880,9 @@ elements.rho.addEventListener("input", () => {
 elements.blockSize.addEventListener("input", () => {
   elements.blockSizeOutput.textContent = elements.blockSize.value;
 });
+
+elements.dampingEnabled.addEventListener("change", syncDampingUI);
+elements.damping.addEventListener("input", syncDampingUI);
 elements.katexDetails.addEventListener("change", () => {
   useKatexForDetails = elements.katexDetails.checked;
   elements.mathModeLabel.textContent = useKatexForDetails ? "KaTeX" : "軽量";

@@ -223,6 +223,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 input[type="range"] { width: 100%; accent-color: var(--blue); }
 .range-labels { display: flex; justify-content: space-between; margin-top: 3px; color: var(--muted); font-family: "Courier New", monospace; font-size: .7rem; }
 .setup-hint { margin: 0 0 18px; color: var(--muted); font-size: .86rem; line-height: 1.65; }
+.damping-control { margin-block: 22px; padding: 15px; background: #f7f9fc; border: 1px solid var(--line); }
+.damping-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: .85rem; font-weight: 800; cursor: pointer; }
+.damping-toggle input { accent-color: var(--blue); }
+.damping-control .control-copy { gap: 10px; font-size: .78rem; }
+.damping-control p { margin: 7px 0 0; color: var(--muted); font-size: .74rem; line-height: 1.6; }
+.damping-control .damping-hint { font-size: .7rem; }
 
 .button-row { display: flex; flex-wrap: wrap; gap: 10px; }
 .button {
@@ -329,6 +335,7 @@ input[type="range"] { width: 100%; accent-color: var(--blue); }
 .calculation-lines .sum-line { display: block; margin-left: 12px; color: var(--ink); font-weight: 800; text-align: right; }
 .calculation-lines .normalization { display: block; margin-top: 11px; padding: 8px; color: #075882; background: var(--blue-soft); text-align: right; }
 .calculation-lines .normalization.is-error { color: var(--danger); background: #fff0f4; text-align: left; }
+.calculation-lines .damping-calculation { display: block; padding: 8px; color: #075882; background: #f1f7fc; }
 
 .marginal-strip { padding: 15px; background: var(--ink); color: white; }
 .marginal-strip .phase-chip { color: var(--ink); background: var(--cyan); }

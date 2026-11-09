@@ -250,9 +250,35 @@ function updateFactorMessages(graph, variableToFactor) {
   return { messages, calculations };
 }
 
-export function runCycle(graph, state) {
-  const variablePhase = updateVariableMessages(graph, state.factorToVariable);
-  const factorPhase = updateFactorMessages(graph, variablePhase.messages);
+function dampPhase(phase, previousMessages, damping) {
+  for (const calculation of phase.calculations) {
+    const id = calculation.direction === "variable-to-factor"
+      ? edgeKey(calculation.from, calculation.to)
+      : edgeKey(calculation.to, calculation.from);
+    calculation.previous = [...previousMessages[id]];
+    calculation.undamped = [...calculation.normalized];
+    calculation.damping = damping;
+    // A zero-mass BP update is undefined; mixing in the old message must not hide it.
+    if (damping > 0 && !calculation.impossible) {
+      calculation.normalized = normalize(calculation.undamped.map((value, x) => (
+        damping * calculation.previous[x] + (1 - damping) * value
+      )));
+      phase.messages[id] = calculation.normalized;
+    }
+  }
+  return phase;
+}
+
+export function runCycle(graph, state, { damping = 0 } = {}) {
+  if (!Number.isFinite(damping) || damping < 0 || damping >= 1) {
+    throw new RangeError("damping は 0 以上 1 未満で指定してください。");
+  }
+  const variablePhase = dampPhase(
+    updateVariableMessages(graph, state.factorToVariable), state.variableToFactor, damping,
+  );
+  const factorPhase = dampPhase(
+    updateFactorMessages(graph, variablePhase.messages), state.factorToVariable, damping,
+  );
   const marginalCalculations = computeMarginalCalculations(graph, factorPhase.messages);
   const nextState = {
     cycle: state.cycle + 1,
@@ -266,6 +292,7 @@ export function runCycle(graph, state) {
     trace: {
       cycle: nextState.cycle,
       rho: graph.rho,
+      damping,
       variableCalculations: variablePhase.calculations,
       factorCalculations: factorPhase.calculations,
       marginalCalculations,

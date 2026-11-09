@@ -5,6 +5,75 @@ import {
 } from "../js/bp-engine.js";
 import { referenceInitial, referenceCycle, maxMessageDifference } from "../../../scripts/diagnose_calc_bp.mjs";
 
+test("dampingの既定値と明示的なオフは従来の更新と一致する", () => {
+  const graph = createFactorGraph(createExampleBoard());
+  const initial = createBPState(graph);
+  const omitted = runCycle(graph, initial);
+  const off = runCycle(graph, initial, { damping: 0 });
+  assert.deepEqual(omitted, off);
+  assert.equal(omitted.trace.damping, 0);
+  for (const calculation of omitted.trace.factorCalculations) {
+    assert.deepEqual(calculation.normalized, calculation.undamped);
+  }
+});
+
+test("dampingは正規化したBP値と旧メッセージを指定割合で混合する", () => {
+  const graph = createFactorGraph(createExampleBoard());
+  const { state, trace } = runCycle(graph, createBPState(graph), { damping: 0.2 });
+  const calculation = trace.factorCalculations.find(({ name }) => name === "m_a3→x5");
+  assert.equal(calculation.damping, 0.2);
+  assert.deepEqual(calculation.previous, [0.5, 0.5]);
+  assert.ok(Math.abs(calculation.undamped[0] - 0.2) < 1e-12);
+  assert.ok(Math.abs(state.factorToVariable["x5|a3"][0] - 0.26) < 1e-12);
+  assert.ok(Math.abs(state.factorToVariable["x5|a3"][1] - 0.74) < 1e-12);
+});
+
+test("dampingのオン・係数変更・オフは独立した参照計算と一致する", () => {
+  const graph = createFactorGraph(createExampleBoard());
+  let reference = referenceInitial(graph);
+  let state = createBPState(graph);
+  for (const damping of [...Array(10).fill(0.2), ...Array(10).fill(0.5), ...Array(3).fill(0)]) {
+    const next = runCycle(graph, state, { damping });
+    state = next.state;
+    reference = referenceCycle(graph, reference, damping);
+    assert.equal(next.trace.damping, damping);
+    assert.equal(next.trace.hasContradiction, false);
+    for (const direction of ["variableToFactor", "factorToVariable"]) {
+      for (const [key, values] of Object.entries(state[direction])) {
+        assert.ok(Math.abs(values[0] + values[1] - 1) < 1e-12);
+        for (const x of [0, 1]) assert.ok(Math.abs(values[x] - Math.exp(reference[direction][key][x])) < 1e-12);
+      }
+    }
+    for (const [id, marginal] of Object.entries(state.marginals)) {
+      assert.ok(Math.abs(marginal[1] - Math.exp(reference.marginalLogs[id][1])) < 1e-12);
+    }
+  }
+});
+
+test("dampingで資料例を100サイクル更新しても正規化失敗しない", () => {
+  const graph = createFactorGraph(createExampleBoard());
+  let state = createBPState(graph);
+  for (let i = 0; i < 100; i += 1) {
+    const next = runCycle(graph, state, { damping: 0.2 });
+    assert.equal(next.trace.hasContradiction, false);
+    state = next.state;
+  }
+});
+
+test("不正なdamping係数を拒否し、ゼロ質量の更新を旧メッセージで隠さない", () => {
+  const graph = createFactorGraph(createExampleBoard());
+  const initial = createBPState(graph);
+  for (const damping of [-0.1, 1, NaN, Infinity, "0.2", true]) {
+    assert.throws(() => runCycle(graph, initial, { damping }), RangeError);
+  }
+  const impossible = createFactorGraph(createExampleBoard());
+  impossible.factors[0].clue = 9;
+  const { trace } = runCycle(impossible, createBPState(impossible), { damping: 0.2 });
+  assert.equal(trace.hasContradiction, true);
+  const failure = trace.factorCalculations.find(({ impossible }) => impossible);
+  assert.deepEqual(failure.normalized, [0, 0]);
+});
+
 test("独立した対数空間BPとブラウザBPの更新が丸め誤差内で一致する", () => {
   for (const rho of [0.1, 0.3, 1 / 3, 0.5, 0.8]) {
     const graph = createFactorGraph({ ...createExampleBoard(), rho });
